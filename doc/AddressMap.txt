@@ -1,0 +1,57 @@
+===============================================================================
+6809 Address space map:
+  Constant:
+    $2000-$3FFF - Global code and data, stack at top
+    $E000-$FDFF - Secondary code page, only swapped out when calling DSKCON
+    $FE00-$FFFF - interrupt vectors and hardware
+  Disk I/O:
+    $0000-$1FFF - BASIC RAM page 0
+    $A000-$BFFF - Color BASIC ROM (in RAM)
+    $C000-$DFFF - Disk BASIC ROM (in RAM)
+    $E000-$FDFF - Upper 8K ROM (in RAM, only present while calling DSKCON)
+  Graphics (drawing blocks) Gfx_RedrawRect:
+    $0000-$1FFF - tilemap window
+    $4000-$5FFF - texture data window
+    $6000-$9FFF - screen data window (even buffer)
+    $A000-$DFFF - screen data window (odd buffer)
+  Graphics (drawing text) Gfx_DrawTextLine:
+    $6000-$9FFF - screen data window (drawing to current onscreen buffer)
+  Graphics (loading splash image) Img_Load_Splash_Image:
+    $6000-$9FFF - screen data window (drawing to current offscreen buffer)
+  Graphics (drawing/erasing sprite) Gfx_SpriteDrawSimple, Gfx_SpriteEraseOffscreen:
+    $0000-$1FFF - BASIC RAM page 0 (dynamic heap contains object tables)
+    $4000-$5FFF - Sprite draw/erase code blocks
+    $8000-$BFFF - graphics output window
+    $C000-$DFFF - sprite erase data
+  Memory copy:
+    $A000-$BFFF - MemMgr copy source
+    $C000-$DFFF - MemMgr copy destination
+  Physics / Object handling:
+    $0000-$1FFF - BASIC RAM page 0 (dynamic heap contains sprite/object descriptor tables, rowcrop tables, COB table, object state data)
+    $4000-$5FFF - Sprite draw/erase code blocks
+    $6000-$7FFF - Level/Object code page
+    $8000-$BFFF - screen data window
+    $C000-$DFFF - saved background pixel data
+  Level loading:
+    $4000-$7FFF - graphics screen aperature (while drawing text and progress bar)
+    $4000-$5FFF - buffer location when loading: Object Init Table, Level Tilemap, Sprite draw/erase code, Tileset data, Sound data
+    $6000-$7FFF - Level/Object code block when loading: level code block, object handling code blocks in sprite groups
+  Decompression:
+    $4000-$5FFF - Decompression data page (when decoding)
+    $6000-$7FFF - historical output page for copy code (when decoding)
+    $8000-$9FFF - output page being written to (when decoding)
+    $8000-$9FFF - uncompressed output buffer (when copying data to client Level-loading buffer)
+
+===============================================================================
+The BASIC RAM page 0 contains BASIC data frame $0000-$0E00, followed by the game directories, followed by the heap, which grows upwards to $1FFF.
+
+Order and contents of data stored on heap (loaded independently for each level):
+ 1. Current Object Table     (16 bytes/object)
+ 2. Sprite Group Table       (10 bytes/group)
+ 3. NumGroups *
+    a. Sprite Descriptor Table (16 bytes/sprite)
+    b. Object Descriptor Table (16 bytes/object)
+ 4. Object State Data block  ( ? bytes/object)
+ ? Rowcrop tables           (16 bytes/sprite + 12 bytes/row)
+
+

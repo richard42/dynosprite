@@ -1,0 +1,584 @@
+DynoSpriteUsage.txt
+-------------------
+November 30, 2014
+
+===================================================================================================
+=------------------------------------  High-Level Overview  --------------------------------------=
+===================================================================================================
+
+What is DynoSprite?
+-------------------
+
+Back in the 1980s, when the Coco and its contemporary home computers were all in vogue, our
+favorite Radio Shack creation didn't get nearly the quality and quantity of game releases that
+other computers did.  One of the reasons for this is that, unlike some of the other computer
+platforms which had custom chips for processing graphics or sound, the Coco had no such hardware,
+and all graphics and sound had to be performed at a low level in software.  Due to the relatively
+low performance of the 8-bit CPUs of the era, it was extremely difficult to write software which
+could get graphics and sound quality on par with what was available from custom chips in other
+computers.  The software engineering effort necessary to make good games on the Coco was very
+difficult, and as a result our users suffered from a relative lack of quality games.
+
+To address this situation and to assist in making my own game, I wrote the DynoSprite engine.
+This engine provides a framework for a game author to work with graphics and sound at a higher
+level, greatly reducing the development effort while also providing hardware handling routines
+with near-optimal performance.  I have taken many of the most difficult and tedious to write
+software routines for a high-performance game on the Coco and packaged them into a framework
+for all Coco game authors to use.  My hope is that DynoSprite will allow game developers to spend
+their time working on the interesting parts of game development, like the art, physics, and
+gameplay, rather than beating their heads by trying to get out the last drop of performance. I've
+already done all the head banging for you.
+
+What can DynoSprite Do?
+-----------------------
+
+Here is a list of the key features supported by DynoSprite:
+
+ - 320x200 16-color graphics mode.
+ - Full screen tilemapped background field, which can scroll horizontally in 2-pixel increments,
+   or vertically in 1-pixel increments.
+ - Background tiles are 16x16 each, with up to 255 different tiles per level, and the maximum
+   tilemap size is 2000 tiles wide by 68 tiles high.
+ - Sprite engine with draw routines that are dynamically compiled into 6809 assembly code, for
+   maximum performance. Sprites can be positioned anywhere on the screen with single-pixel
+   precision.
+ - 2-voice audio output for sound effects or music, using either the Coco's internal 6-bit DAC
+   our Orchestra-90 digital audio outputs.
+ - Support for keyboard and joystick control.
+ - Support for both RGB and Composite monitor types.
+ - Variable frame rate system so game can maintain sense of speed when the frame-rate drops.
+ - High-performance data compression for all game data.
+ - Sophisticated build system for processing, packaging, and compressing all game data.
+ - Includes logic for loading all game data from disk, decompressing, and managing memory.
+ - All of the game code is separated from the core engine code, and there is an object-oriented
+   design to the interface between the game and the engine.
+ - Tested and validated on many different Coco variants, including on a real Coco 3 with RSDOS and
+   a floppy drive, a CocoNET MicroSD cartridge, a Coco SDC adapter, HDB-DOS with DriveWire over the
+   serial port, and with the Vcc and MESS emulators.
+
+How can I use DynoSprite?
+-------------------------
+
+The first thing that you should do is to learn how the engine works and what its capabilities are,
+to determine whether or not DynoSprite can provide the features that you need for your game.  Read
+this document completely to get a general overview of DynoSprite.  If you have questions, you can
+dig in to the source code to find the answer (there are lots of comments in the code), or ask the
+author (Richard Goedeken) directly on the MaltedMedia.com Coco mailing list or the #coco_chat IRC
+channel on irc.freenode.net.
+
+Next, browse through a little bit of the source code to familiarize yourself with the technical
+details.  I would recommend looking through at least the following 3 source files:
+
+ 1. engine/globals.asm    - Wost variables defined here are in the direct page, though there are
+                            some larger buffers at the end of the file which are not in the DP.
+ 2. engine/datastruct.asm - The Data File layouts and Game Data Directories layouts aren't that
+                            important to learn right away, but you should look through the
+                            structure definitions for the various tables (SGT, SDT, ODT, COT).
+ 3. engine/main.asm       - Read through the main loop for a high-level understanding of the game
+                            program flow.
+
+Finally, read through the demo source code to see how the game code and data files interact with
+the DynoSprite engine.  All of the game-specific files reside in the "game/" sub-directory:
+
+game/readme-bas.txt           - Template text file that is used to generate the README.BAS file
+                                which is included with the output Coco disk.  Lines which begin
+                                with "{X}" are centered, with the charater X filling in the left
+                                and right sides.
+
+game/images/images.txt        - For each Splash image, this descriptive text file gives 24-bit RGB
+                                values for 3 different special colors: the foreground, background,
+                                and the 'progress bar' color.  This is used for the fade-in and
+                                fade-out routines.  Splash images are currently only used for the
+                                main menu and level loading screens, though a game could use them
+                                for other purposes as well (cut scenes).
+
+game/levels/01-marbledemo.txt - The DynoSprite Demo only has one 'level', and this file gives the
+                                parameters used to describe this level to the engine, including:
+                                - Level Name & Description (used in level loading screen)
+                                - List of Sprite/Object groups to load for this level
+                                - Maximum size of Current Object Table for level
+                                - Index number of Tileset to use for background tilemap
+                                - Size of background tilemap (in X and Y dimensions)
+                                - Starting coordinate of screen window, relative to background
+                                - Initialization structures for objects to create at level start
+                                The object's (ball's) starting coordinates are generated by the
+                                level initialization code for the demo, so the values (globalX
+                                and globalY) are 0 here.
+
+game/levels/01-marbledemo.asm - Contains assembly source code for the 2 level functions:
+                                Level_Initialize and Level_CalculateBkgrndNewXY.  Note that these
+                                functions are the only game code which is not required to be
+                                position-independent.  The Level_Initialize function is called once
+                                at Level load time: it increases the size of the background tilemap
+                                to 256x64, clears it, and randomly places tetris-like blocks of
+                                colored tiles.  The Level_CalculateBkgrndNewXY function is called
+                                once for each output video frame: it examines the state of the
+                                joystick axis positions and calculates a new starting X,Y
+                                coordinate for the screen.  This causes the background tilemap to
+                                be scrolled for the next frame.  This function also decides when to
+                                load a new level.  In the demo, Level 1 is reloaded when the
+                                joystick button is pressed.
+
+game/levels/01-marbledemo.map - Contains a matrix of hexadecimal tileset indices which map out the
+                                background tilemap used for this level.  The dimensions of this
+                                matrix must match those given in the level description file
+                                01-marbledemo.txt.  For the DynoSprite demo, this data is actually
+                                not used.  At level initialization time, the Level_Initialize
+                                function increases the size of the background tilemap to 256x64,
+                                clears it, and randomly places tetris-like blocks of colored tiles.
+
+game/objects/01-numerals.asm  - Sprite/Object group 1 contains 16 Sprites of size 10x18 which draw
+                                hexadecimal digits (0-9 and A-F). There are 2 Objects defined: a
+                                6-digit BCD counter, and a Hex Memory Value Readout.  Neither of
+                                these are used by the demo as it was released, but they were used
+                                during debugging and are very useful objects.  This assembly file
+                                contais the 4 Object functions (Init, Reactivate, Update, Draw) for
+                                these two objects.
+
+game/objects/02-balls.asm     - Sprite/Object group 2 contains 10 sprites of size 17x17 which draw
+                                the balls.  Two are static (Whole and Outline), and the other two
+                                are animated with 4 frames each.  There is 1 Object defined, and
+                                this assembly source file contains the code for the 4 Object
+                                functions for this Ball object.  This code is responsible for
+                                velocity reduction (friction), collision detection and ricochet
+                                handling for bouncing or dragging on the side of the window, and
+                                collision detection and ricochet handling for collisions between
+                                balls.
+
+game/sounds/01-pool_ball_hit.wav  - Uncompressed audio file for sound effect. This file can be any
+                                    bit depth or sampling rate, because it will be converted during
+                                    build.
+
+game/sprites/*.spr                - Contains 5 parameters and a pixel matrix for each sprite in the
+                                    Sprite/Object group.  The palette used for the level is taken
+                                    from the Tileset, so the pixel values used in the sprite matrix
+                                    must match with the colors defined in the Tileset's palette.
+
+game/tiles/00-rainbowpyramids.txt - This text file defines the tileset used by the demo level.  It
+                                    consists of the palettes to use for Composite and RGB monitors
+                                    (in decimal numbers) and then one 16x16 hexadecimal matrix for
+                                    each background tile, with the tile matrices separated by one
+                                    blank line.
+
+Now you should know everything that you need to make a game with DynoSprite!  Fire up your dev
+tools and start pixeling, mapping, animating, and coding to make your game!
+
+===================================================================================================
+=---------------------------------------  DynoSprite Files  --------------------------------------=
+===================================================================================================
+
+Engine Files (6x09 assembly language)
+-------------------------------------
+
+config.asm                  - Contains assemble-time configuration constants used by the engine.
+                              Currently the only such constant is SOUND_METHOD, which determines
+                              how the audio code handles the Coco's 6-bit audio DAC.
+
+constants.asm               - Contains assemble-time constant values.  Currently only the keycodes
+                              used with the Input_IsKeyPressed function are here.
+
+datastruct.asm              - Documentation and structure definition macros for DynoSprite tables.
+                              Also contains documentation for the structures of the data files on
+                              disk, and the Game Data Directories stored in the DYNO.BIN program.
+                              The Game Data Directories are used to assist in the identification
+                              and loading of the game data from the disk files.
+
+disk.asm                    - Functions for Disk I/O using the DKSCON interface.  Compatible with
+                              RS-DOS, HDB-DOS, SDC-DOS, CocoNET, and probably others. One function
+                              initializes global data structures for the file directory on the
+                              disk, and then a simple file API is provided: Open, Seek Forward,
+                              Read, and Close functions are given.  Only one file at a time can be
+                              open.
+
+globals.asm                 - Definitions for all of the global data variables and buffers. The
+                              first part contains data which reside in the Direct Page ($2000).
+                              All data which is defined here is visible and usable from all parts
+                              of the engine and game code at all times.
+
+graphics-bkgrnd.asm         - Contains all of the higher-level functions for managing the
+                              scrolling background tilemap. This file also contains a high-level
+                              description of the operation of the scrolling background feature.
+
+graphics-blockdraw-6309.asm - Contains a 6309-optimized version of Gfx_DrawBlockRows function,
+                              which draws a variable number of rows (between 1 and 16) of a
+                              background tile, onto both the Even-start and Odd-start screen
+                              buffers in one buffer pair.
+
+graphics-blockdraw-6809.asm - Contains 6809-compatible code for Gfx_DrawBlockRows function.
+
+graphics-image.asm          - Contains a function for loading Splash images, and fading in and
+                              out.  The Fade routines go to/from a Splash image or menu, and a
+                              blank screen filled with a single (background color) pixel value.
+                              These routines are used for the menus and level loading screens.
+
+graphics-sprite.asm         - Functions for allocating and freeing the Sprite subsystem variables,
+                              and the default Sprite draw routine (used to draw each Object which
+                              has a drawType value of 1).  Also contains an unimplemented function
+                              for drawing with a RowCrop table (not yet supported), which would be
+                              used for Objects with a drawType value of 2.
+
+graphics-text.asm           - Contains a function for drawing text on the screen, and a buffer
+                              with font bitmap data.  This function is only used for debugging
+                              (SWI) and menus, because it is slow and writes destructively to
+                              the screen.  Unlike the hex digits in the Sprite/Object group 1,
+                              these text characters cannot be erased once drawn.
+
+input.asm                   - Functions for reading Joystick and Keyboard state.
+
+loader.asm                  - Contains all of the logic used to load and unload Level data.  From
+                              the game-specific code (in either the Level or Object update
+                              functions), you can call the Ldr_Jump_To_New_Level function defined
+                              here to jump to a new level.
+
+macros.asm                  - Assembly-language macros used for certain 6309-optimized instructions
+
+main.asm                    - This is the single file used to assemble everything into the final
+                              DYNO.BIN program.  It defines the memory layout for all of the
+                              various parts of the program and "include"s all of the other assembly
+                              files in the engine.  It also contains the startup code and the code
+                              for the Main Loop.
+
+math.asm                    - Math helper functions. Currently this file contains functions for
+                              doing 16-bit by 8-bit unsigned division, and 16-bit by 16-bit
+                              unsigned division.
+
+memory.asm                  - Includes functions for managing memory.  There are 2 main groups of
+                              memory management functionality provided by DynoSprite: a Virtual
+                              Memory subsystem for managing 8k pages and the Graphics Aperature,
+                              and a Heap which is used for the Level data tables (COT, SGT, SDTs,
+                              ODTs, and Object state data).
+
+menu.asm                    - Functions for executing the Main Menu, which display the menu options
+                              and allow the user to choose their Monitor, Controller, and Sound
+                              setup.
+
+object.asm                  - Functions used by the level loading code for initializing and
+                              destroying the Current Object Table.
+
+sound.asm                   - Functions for handling audio waveform playback.
+
+system.asm                  - Miscellaneous low-level functions for initializing the Coco hardware,
+                              calling the DSKCON routine for disk I/O, setting the graphics mode
+                              and palettes, IRQ handling, and debugging (SWI).
+
+utility.asm                 - Miscellaneous functions, currently including: string length
+                              calculation, psuedo-random number generation, and binary to ASCII
+                              hexadecimal conversion.
+
+
+Script Files (Python)
+---------------------
+
+These scripts are used by the build system (they are called from the Makefile) to process, compile,
+and package various game resources for the final disk image.
+
+binsectionmover.py - Some parts of the DYNO.BIN program reside in memory locations which conflict
+                     with BASIC, and therefore must be loaded into benign locations by LOADM and
+                     then moved to their correct destinations after starting up DynoSprite. The
+                     output from the assembler (DYNO.BIN) places these binary sections in their
+                     final locations, as is necessary for proper absolute addressing within the
+                     code. This script is used to modify the DYNO.BIN program image after
+                     assembling to load those binary sections at their initial (benign) locations.
+
+build-images.py    - Processes the input splash images (game/images/*.png) by loading pixel data,
+                     converting to packed 4-bit pixels, generating Composite and RGB palettes,
+                     compressing the pixel data, packaging into IMAGES.DAT file, and generating
+                     gamedir-images.asm Game Data Directory file.
+
+build-levels.py    - Parses the level description files (game/levels/*.txt) and background tilemap
+                     files (game/levels/*.map).  Reads the raw binary output from assembling the
+                     level assembly code files (game/levels/*.asm) and packages all of this data
+                     into the LEVELS.DAT file.  Also generates the gamedir-levels.asm Game Data
+                     Directory file.
+
+build-objects.py   - Reads the raw machine code generated by the assembler for the Object handling
+                     code (game/objects/*.asm) and the Sprite draw/erase code (which is generated
+                     by the Sprite compiler). Packages the Sprite and Object data into OBJECTS.DAT
+                     file, and generates the gamedir-objects.asm Game Data Directory file.
+
+build-readme.py    - Parses the game/readme-bas.txt file and generates the README.BAS file for
+                     displaying the game's README documentation.
+
+build-sounds.py    - Reads all of the raw audio waveform files (build/obj/sound*.raw) and packages
+                     them into SOUNDS.DAT file.  Also generates the gamedir-sounds.asm Game Data
+                     Directory file.
+
+build-tiles.py     - Reads all of the tileset definition files (game/tiles/*.txt), packages them
+                     into output TILES.DAT file, and generates the gamedir-tiles.asm Game Data
+                     Directory file.
+
+compression.py     - Helper functions for compressing and decompressing data streams using the
+                     DEFLATE algorithm.  This data compression is used for various data blocks in
+                     all of the game data (*.DAT) files in DynoSprite.
+
+sprite2asm.py      - This is the Sprite Compiler, one of the core pieces of DynoSprite technology.
+                     This script reads in a sprite definition file (game/sprites/*.spr) and writes
+                     optimized 6809 or 6309 assembly language files for drawing and erasing the
+                     sprite images.  Note that these output assembly language files are normally
+                     deleted automatically by GNU Make due to some obscure rules about partial
+                     build products.  To view the assembly code written by the Sprite Compiler, you
+                     can look at the list files instead (build/list/sprite-*.lst).
+
+symbol-extract.py  - Helper script which parses an lwasm listing file (*.lst) and generates an
+                     assembly code source file which uses the EQU directives to define the memory
+                     locations of all public symbols in the input assembly listing.  This script is
+                     used to get the symbol locations of all the DynoSprite engine functions after
+                     the first assembly pass, so that these functions may be called from the game-
+                     specific code (ie, Level Initialize or Update, Object Update or Draw, etc).
+
+===================================================================================================
+=----------------------------------------  Build Process  ----------------------------------------=
+===================================================================================================
+
+The build process is defined and documented inside of the Makefile.  Here are the steps:
+
+0.  Build 'file2dsk' dependency, which is used for generating the final output DSK image.
+1.  Compile all sprites to 6809 assembly code with "scripts/sprite2asm.py"
+2.  Assemble the sprite assembly code to raw machine code with "tools/lwasm"
+3.  Run first-pass assembly of DynoSprite engine with "tools/lwasm"
+4.  Extract symbol addresses from DynoSprite engine with "scripts/symbol-extract.py"
+5.  Assemble Object handling routines (game/objects/*.asm) to raw machine code with "tools/lwasm"
+6.  Assemble Level handling routines (game/levels/*.asm) to raw machine code with "tools/lwasm"
+7.  Build OBJECTS.DAT file and game data directory with "scripts/build-objects.py"
+8.  Build LEVELS.DAT file and game data directory with "scripts/build-levels.py"
+9.  Build TILES.DAT file and game directory with "scripts/build-tiles.py"
+10. Resample audio files to generate raw waveforms, with system-level ffmpeg program
+11. Build SOUNDS.DAT file and game directory with "scripts/build-sounds.py"
+12. Build IMAGES.DAT file and game directory with "scripts/build-images.py"
+13. Run final assembly pass of DynoSprite engine which includes final Game Data Directories,
+    with "tools/lwasm", and relocate code sections with "scripts/binsectionmover.py"
+14. Generate the README.BAS document with "scripts/build-readme.py"
+15. Create complete Coco disk image with "tools/file2dsk"
+
+===================================================================================================
+=------------------------------------------  Main Loop  ------------------------------------------=
+===================================================================================================
+
+The high-level workflow of the main loop is also documented in "engine/main.asm".
+
+1. Wait until the Vertical Retrace interrupt fires and swaps the front/back buffers to begin
+   displaing the most recently rendered frame on the monitor.
+2. Erase all Sprites drawn to offscreen (back) buffer pair.
+3. Set background scrolling position for the new output frame, and draw background tiles as
+   necessary.
+4. Call Draw function on all Active Objects in the Current Object Table.
+5. Increment LastRenderedFrame variable, so that the next Vertical Retrace interrupt will know that
+   a new frame is ready for display.
+6. Read input status from Joystick or Keyboard and update global variables.
+7. Call the Level_CalculateBkgrndNewXY function to calculate the scrolling screen position for the
+   next video frame to render.
+8. Iterate through each object in the Current Object Table:
+   - If Object is active, then call the Object's Update function
+   - otherwise, call the Object's Reactivate function
+
+===================================================================================================
+=----------------------------------------  Architecture  -----------------------------------------=
+===================================================================================================
+
+DynoSprite is object-oriented in nature.  As a game author, you only need to write 6 different
+types of assembly language functions to express your game logic: 2 types (Initialize and Update)
+for each Level, and 4 types (Initialize, Update, Reactivate, and Draw) for each Object.  Anything
+which is dynamic during gameplay and needs to run some code can be a type of Object.  Each Object
+type which you define can have any number of instances in the running level.  Each instance will
+use the same code but have its own unique state data space.  Most Objects will be drawn on the
+screen using a single Sprite or multiple Sprites over time, animating a sequence.  But you could
+have Objects which are never drawn and only provide some processing function. You can also write
+custom Draw functions for your objects.  They could be used to draw multiple Sprites (as with the
+6-digit BCD counter object), or do something entirely different.
+
+To illustrate further, you could have an Object which represents a bullet. It could use a fixed
+Sprite to draw itself automatically. During its Update function, it could calculate its new
+position from its current velocity, check the new position against the screen boundary (to
+deactivate itself if it has left the screen), and do collision detection with the main character
+Object (to determine if the player should lose a life).  You could have another Object which
+represents a certain type of enemy.  It could have many of the same behaviors as the bullet but
+have an animated Sprite sequence, and move in a fixed pattern instead of with a fixed velocity. You
+could also have an Object for the main character.  During its Update function, it would check the
+input joystick state and move itself accordingly.  It could do collision detection to determine if
+the player has picked up a key at a special location, or fallen off of the current platform on
+which it was standing (putting the main character into a 'falling' mode).
+
+In the DynoSprite engine, Sprites and Objects are linked together in groups. For each group, the
+author will write a Sprite description file (game/sprites/XX-GroupName.spr) which contains
+parameters and pixel matrices for all Sprites in the group, and an Object code file
+(game/objects/XX-GroupName.asm) which contain 4 functions (Initialize, Update, Reactivate, and
+Draw) for each Object in the group.  There is no relationship necessary between the number of
+Sprites in a group and the number of Objects in the same group.  As a game author, you can
+organize your game objects into Sprite/Object Groups any way you desire.  For instance, it might
+make sense to have one Group for your main character, one Group for your enemy objects, or one
+Group for each different type of enemy, and one Group for numeric displays (ie, score counter).
+The Sprite colors are referenced against the palettes which are defined in the Tilesets, so unless
+you reserve certain colors to be common across multiple Tilesets, you will probably need to use
+different Sprite/Object Groups with each Tileset.  For example, you may have one set of Sprites
+and Objects which work with the colors defined in a Tileset for underwater levels, while you use a
+different set of Sprites and Objects to go with the colors defined in another Tileset for outer
+space levels.
+
+Each Level in a game may use as many Sprite/Object Groups as you want.  The particular Groups to
+load with a level are defined in the Level's description file (game/levels/XX-LevelName.txt).  You
+are only limited by the amount of available memory.
+
+===================================================================================================
+=--------------------------------------  Data Structures  ----------------------------------------=
+===================================================================================================
+
+There are several data tables which are important to the object-oriented game model used by
+DynoSprite, and may be used during the game-specific assembly code written by the game author.
+These tables are documented thoroughly in the datastruct.asm file, and also explained here.
+These tables are stored on the heap (doc/AddressMap.txt).  They are initialized when the Level is
+loaded from disk, and they stay on the heap for the duration of that level.
+
+The Current Object Table (COT) contains one entry for each Object instance which is currently
+present in the Level. Note that it is possible to dynamically create and delete objects during
+gameplay, but this behavior is not used by the demo.  The Level description file (game/levels/
+XX-Name.txt) contains a parameter which specifies the maximum size of this table, which may be
+necessary to support dynamic Object creation.  Note that not all of the Objects in this table have
+to be visible or drawn on the screen.  You can organize the object however you want.  For example,
+you may use the first object in a level for the main character, the next 5 for enemies, another 4
+objects for active bullets, etc.
+
+Each entry in the COT contains index values for the Group Index and Object Index within the
+Group, then an Active bit-flag which specifies if the object should be drawn, and if it should
+be updated.  It also contains the current global X and Y coordinates (relative to the entire
+background tilemap, not relative to the screen start), and a pointer to the state data for the
+object.  It also contains pointers to the ODT, SDT, and RowCrop tables for the Group, which are
+used as a performance optimization during object handling (this saves expensive table lookups).
+
+The Sprite Group Table (SGT) binds together all of the Sprite/Object groups for the current level.
+Each Sprite/Object Group which was loaded into the current level has one entry in this table.
+Each table entry contains the Group's index number, the total number of Sprites and total number
+of Objects in this Group, and pointers to the SDT and ODT tables for the group.
+
+There is one Sprite Descriptor Table (SDT) loaded for each Sprite/Object Group in the current
+level. This table contains one entry for each Sprite in the Group.  Some of the parameters stored
+in this table are: the Width and Height of the Sprite, the number of bytes to reserve for storing
+the background pixel data for erasing the Sprite, and pointers to functions for drawing and erasing
+the Sprite.  All of this data is automatically generated by the build system.
+
+There is also one Object Descriptor Table (ODT) loaded for each Sprite/Object Group in the current
+level. This table contains one entry for each Object in the Group. The paramaters stored for each
+Object in the table are: number of bytes expected in the object initialization stream (which are
+normally taken from the Level Description file) for this type of object, the number of bytes of
+Object state data to store for each instance of this type of Object, the drawing type used for
+this Object (standard single Sprite draw, or custom draw function), and pointers to the 4 Object
+handling functions (Initialize, Reactivate, Update, and Draw).
+
+To see how the various data members in these tables work together, you can examine the source code
+in game/objects/02-balls.asm.  This object uses a single byte in the initialization stream (taken
+from the InitData list in the [Object] sections in game/levels/01-marbledemo.txt).  The value of
+this initialization byte tells the ball object which 'type' of ball it should be.  There are 2
+static balls (Whole and Outline), and 4 dynamic balls (clockwise and counter-clockwise rotation of
+2 different sprite animation sequences).  The Ball Object also defines a data structure (G2OB0)
+which contains the state data for each instance of a Ball object in the Current Object Table.  This
+data structure contains the Sprite Index (within the current Sprite/Object Group) for drawing the
+object at the next time it's drawn, the Ball Type (copied from the initialization stream in the
+Object Initialization function), the 8-bit fractional position of the Ball (the integer position is
+stored in the Current Object Table), the current velocity of the ball (in 8.8-bit fixed-point
+notation), and an 'odometer' counter which is used to determine which Sprite to show in the
+animation sequence.  The faster the ball is traveling, the faster it will rotate.  The Object
+Initialization function (Demo_Grp2Object0_Init) shows how each Object instance's state data is
+initialized when it is created.  In the demo, there are 5 Ball objects created at level load time.
+The Update function (Demo_Grp2Object0_Update) contains code for doing collision detection between
+different balls, and velocity calculation for a ricochet effect.  At the end of this source file,
+the Object Descriptor Table is defined which describes all of the Objects provided by this Group.
+
+===================================================================================================
+=------------------------------------  Creating Your Content  ------------------------------------=
+===================================================================================================
+
+Creating Sounds
+---------------
+
+Sound waveforms for use with DynoSprite should be stored in an uncompressed WAV file.  They will
+automatically be converted to the proper bit depth and sampling frequency by ffmpeg during the
+build process.  You can select whatever audio output frequency you want for your game by setting
+the AudioSamplingRate parameter in engine/globals.asm.  Higher frequencies will sound better but
+use more CPU time while audio is playing.  To play a sound when something happens (ie, during the
+Level Update or Object Update functions), just call the Sound_Play function with the waveform
+number that you want to play in register B.  There is no descriptive file necessary for the audio
+waveforms. The build system will process all WAV files that it finds in "game/sounds/" which start
+with two digits.  The number given in the filename is the same waveform number that you should
+supply to the Sound_Play function.
+
+Creating Sprites
+----------------
+
+Currently, the sprites must be defined in the proprietary and self-explanatory SPR files.  In order
+to make new sprites, you will need to manually copy the sprite pixel layout into an SPR file, or
+integrate DynoSprite into your workflow with a graphic sprite generation tool either by writing a
+custom conversion script to generate the SPR files, or modifying the 'sprite2asm.py' script to
+read the sprite definition file which is exported natively by your sprite tool.  I will probably do
+this later, once I start working on my own game with DynoSprite.
+
+Creating Splash Images
+----------------------
+
+The Splash images used for the menus and level loading screens in DynoSprite are generated from
+PNG images.  I used the 'grafx2' open-source 'pixel art' program to draw the main menu background.
+Using a pixel art program, you can start by loading either the Composite or RGB palette files
+(located in tools/palettes/).  Then set your image size (to whatever you want, but no larger than
+320x200, and with an even width) and start drawing.  As long as you do not use more than 16 colors
+in your image, the scripts/build-images.py script will correctly process the file and provide
+palettes for both RGB and Composite monitors.  If you do use more than 16 colors, the build process
+will fail with an error.
+
+Creating Tilesets and Level Tilemaps
+------------------------------------
+
+Currently, Tilesets are defined in the proprietary and self-explanatory "game/tiles/*.txt" files,
+and Tilemaps for each level are defined in the "game/levels/*.map" files.  In order to integrate
+DynoSprite with a graphical tilemap generation tool, you will need to either write a custom
+conversion script to generate the Tileset and Tilemap files as expected by DynoSprite, or modify
+the "build-tiles.py" and "build-levels.py" scripts to work with the native file types which are
+exported by your tools.
+
+Creating Objects
+----------------
+
+To create Objects which can be displayed using the Sprites in a particular Group, you must write
+an assembly language file (game/objects/XX-GroupName.asm) which contains 4 functions for each
+Object in the Group: Initialize, Update, Reactivate, and Draw.  This file must also define the
+number of Objects in the Group, and the Object Descriptor Table.  These last 2 items must be placed
+at the end of the file.  Look at the demo file (game/objects/02-balls.asm) for an example.
+
+Creating Levels
+---------------
+
+For each Level in your game, you will need to create 3 files: 1) a Level Description file, which
+gives certain Level parameters and starting Object information, 2) a Level Tilemap file which
+specifies the background tilemap for the level, and 3) an assembly language file which contains the
+source code for 2 Level-specific functions: Level_Initialize and Level_CalculateBkgrndNewXY. Look
+at the demo files in game/levels/* for an example.
+
+DynoSprite is flexible in the way that you can handle the Current Object Table during gameplay in
+a Level.  The demo is simple: it just creates 5 objects (the Marbles, defined in the Level
+Description File), initializes them in the standard way during Level Load, and they exist for the
+duration of the Level.  You could also use this methodology for a game: create an object for your
+main character and one for each of the enemies in the level, and let them exist for the duration
+of the level.  You can use the activation flag to help with this if your levels are large. The
+Objects can be deactivated when they are offscreen, and during the Reactivate call they can test
+the background screen position to see if they will be onscreen in the next frame.  If so, they can
+reactivate themselves, which will cause their Draw/Erase and Update functions to be called during
+the next main loop cycle. During the Update function, the Object should test to see if it's going
+off-screen, and if so then deactivate itself.  This mechanism should help performance by avoiding
+the overhead of unnecessary draw or update function calls.
+
+Another possible way to use the Current Object Table is to create and destroy objects dynamically
+while the level is running. This would be useful for a game where you have lots of enemies and
+they randomly come in from off-screen. There are currently no helper functions for handling this,
+so you must manually modify the data stored in the global variables "Obj_NumCurrent" and the data
+tables pointed to by "Obj_CurrentTablePtr" and "Obj_StateDataPtr".  It would be easiest to only
+create or destroy elements on the end of the list, and it would also be easiest to only create or
+destroy Objects during the Level_CalculateBkgrndNewXY function.  If you add/remove Objects during
+one of the Object handling functions, you may break the operation of the Object processing loop in
+main.asm.  This code could be modified to support adding/removing Objects during the processing
+loop.
+
+Finally, you could also use a combination of the two described Object Table handling mechanisms.
+Some Objects could always reside at the same place in the Current Object Table, while others are
+dynamically created and destroyed as necessary.
+
+Also, feel free to customize the DynoSprite engine itself as necessary.  The Direct page has some
+free space and could be used to store special global variables which could be used by all of the
+Level and Object code.
+

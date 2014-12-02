@@ -1,0 +1,76 @@
+***********************************************************
+* DynoSprite - levels/01-marbledemo.txt
+***********************************************************
+* This file describes the given level and starting objects
+
+[Level]
+Name = DynoSprite Demo 2
+Description = "Bubbles In A Box"
+ObjectGroups = 1, 2
+MaxObjectTableSize = 5
+Tileset = 0
+TilemapWidth = 32
+TilemapHeight = 32
+* The background starting X coordinate is in bytes (2-pixels/byte)
+BkgrndStartX = 944
+BkgrndStartY = 416
+
+[Object]
+GroupID = 2
+ObjectID = 0
+Active = 3
+globalX = 0
+globalY = 0
+InitData = 1
+
+[Object]
+GroupID = 2
+ObjectID = 0
+Active = 3
+globalX = 0
+globalY = 0
+InitData = 2
+
+[Object]
+GroupID = 2
+ObjectID = 0
+Active = 3
+globalX = 0
+globalY = 0
+InitData = 3
+
+[Object]
+GroupID = 2
+ObjectID = 0
+Active = 3
+globalX = 0
+globalY = 0
+InitData = 4
+
+[Object]
+GroupID = 2
+ObjectID = 0
+Active = 3
+globalX = 0
+globalY = 0
+InitData = 5
+
+* Here is an object which is a frame counter in the upper-right corner of the screen
+* [Object]
+* GroupID = 1
+* ObjectID = 0
+* Active = 3
+* globalX = 100
+* globalY = 10
+* InitData = 0,0,0
+
+* Here is an object which prints out the X and Y joystick axis values in the upper-right corner of the screen
+* This shows how to use dynosprite engine symbols to put memory pointers in the initialization list
+* [Object]
+* GroupID = 1
+* ObjectID = 1
+* Active = 3
+* globalX = 100
+* globalY = 10
+* InitData = 2,Input_JoystickX
+

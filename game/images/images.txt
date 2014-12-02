@@ -1,0 +1,15 @@
+***********************************************************
+* DynoSprite - images/images.txt
+***********************************************************
+* This file specifies some important colors in each image
+
+[Image0]
+BackgroundColor = ffffff
+ForegroundColor = 000000
+ProgressColor = 1bb43a
+
+[Image1]
+BackgroundColor = ffffff
+ForegroundColor = 000000
+ProgressColor = 67fb79
+

@@ -1,0 +1,16 @@
+Possible features to add to DynoSprite engine in future:
+ - pause button
+ - in-game mute sound toggle key
+ - high score list
+ - cheat menu
+ - sprite collision detection
+ - helper functions for dynamically creating/destroying Objects
+ - add feature to keep list of background tile locations to update, and then redraw them in main loop
+ - implement RowCrop functionality in sprites to support partial sprite draw/erase on top/bottom of screen
+
+Potential improvements to existing features:
+ - rewrite audio code to allow 2nd channel to start instantly instead of at next buffer refill
+ - reduce sprite code memory by rolling multiple animation frames into single sprite code block
+ - modify object processing loop in main.asm to support adding/removing Objects during the processing loop
+
+
