@@ -25,6 +25,7 @@ project:
   - Python 2.x
   - lwasm (available from: http://lwtools.projects.l-w.ca/)
   - ffmpeg (available from: https://www.ffmpeg.org/)
+    or sox (available from: http://sox.sourceforge.net/)
   - MAME/MESS (optional, available from: http://mamedev.org/)
 
 * Linux Build Instructions *
@@ -91,6 +92,13 @@ DynoSprite makefile.
   Debugging Options:
     MAMEDBG=1     == run MAME with debugger window (for 'test' target)
 
+Special notes about audio conversion:
+ - if you encounter errors from 'ffmpeg' during the audio conversion step,
+   you may choose to use 'sox' instead of 'ffmpeg' by replacing the command
+   in step 10 of the makefile with the following command:
+
+   sox $< -r $(AUDIORATE) -c 1 -u -1 $@
+
 Special notes about build targets:
  - 'make all' will build a file called DYNO6809.DSK, while 'make all CPU=6309'
     will build a file called DYNO6309.DSK
@@ -142,11 +150,11 @@ The doc/ folder contains the following additional documentation files:
   AddressMap.txt      - CPU/GIME 8k block mappings during various operations in
                         the DynoSprite engine, plus order and contents of data
                         stored on heap
-  Todo.txt            - Notes regarding various features and enhancements which
-                        may be added in the future
   Benchmarks.txt      - Various benchmarking data gathered during development
   DynoSpriteUsage.txt - How DynoSprite works, and how it can be used to build a
                         game
+  Todo.txt            - Notes regarding various features and enhancements which
+                        may be added in the future
 
 4. Getting Started
 ------------------
