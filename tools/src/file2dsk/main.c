@@ -388,7 +388,8 @@ int main(int argc, char **argv) {
     FILE *outfile;            // Output file handle (for writing DSK)
     FILE *infile = NULL;      // Input file handle (for testing existance)
     char szInFile[C_iFilenameMaxLen+1],     // Input filename (when user-input)
-         szOutFile[C_iFilenameMaxLen+4+1];  // Output DSK filename
+         szOutFile[C_iFilenameMaxLen+4+1],  // Output DSK filename
+         szUpperOutFile[C_iFilenameMaxLen+4+1];
     int iArg;                 // Counter to loop through arguments
     char cContinue = 1;       // Set to 0 if adding a file fails
     char *pszExt;             // Pointer to extension within filename
@@ -448,10 +449,12 @@ int main(int argc, char **argv) {
         //    strtoupper(argv[iArg]);
         // Set output filename
         strcpy(szOutFile,argv[1]);
+        strcpy(szUpperOutFile, argv[1]);
+        strtoupper(szUpperOutFile);
     }
 
     // Adjust output file name
-    if (strcasestr(szOutFile,".dsk") != NULL)
+    if (strstr(szUpperOutFile,".DSK") != NULL)
         cInputStartArg++;
     else {
         if ((pszExt = strrchr(szOutFile,'.')) == NULL)
