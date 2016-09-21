@@ -85,8 +85,8 @@ DivLoop_NoBorrow@
 * - Trashed: A,B,X,Y
 ***********************************************************
 
-Math_Divisor_16         rmb     1
-Math_Remainder_16       rmb     1
+Math_Divisor_16         rmd     1
+Math_Remainder_16       rmd     1
 *
 * 16-bit by 16-bit division
 * Timing = 18 + 16*(51) + 31 = 865 clock cycles
@@ -119,4 +119,46 @@ DivLoop_NoBorrow@
             exg         d,y                     * 8
             std         Math_Remainder_16       * 6
             rts                                 * 5
+
+***********************************************************
+* Math_Multiply16by16:
+*
+* - IN:      Math__16, Math_Divisor_16
+* - OUT:     Math_Quotient_16, Math_Remainder_16
+* - Trashed: A,B
+***********************************************************
+
+Math_Multiplicand_16    rmd     1
+Math_Multiplier_16      rmd     1
+Math_Product_32         rmd     2
+*
+Math_Multiply16by16:
+            clra
+            clrb
+            std         Math_Product_32
+            std         Math_Product_32+2
+            lda         Math_Multiplicand_16+1
+            ldb         Math_Multiplier_16+1
+            mul
+            std         Math_Product_32+2
+            lda         Math_Multiplicand_16
+            ldb         Math_Multiplier_16+1
+            mul
+            addd        Math_Product_32+1
+            std         Math_Product_32+1
+            bcc         >
+            inc         Math_Product_32
+!           lda         Math_Multiplicand_16+1
+            ldb         Math_Multiplier_16
+            mul
+            addd        Math_Product_32+1
+            std         Math_Product_32+1
+            bcc         >
+            inc         Math_Product_32
+!           lda         Math_Multiplicand_16
+            ldb         Math_Multiplier_16
+            mul
+            addd        Math_Product_32
+            std         Math_Product_32
+            rts
 
