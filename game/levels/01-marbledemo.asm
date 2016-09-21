@@ -36,6 +36,9 @@
             include     datastruct.asm
             include     dynosprite-symbols.asm
 
+MapWidth    equ         800
+MapHeight   equ         80
+
             org         $6000
 
 * -----------------------------------------------------------------------------
@@ -61,23 +64,28 @@ Tetris07    fcb         0,0,1,0,2,0,3,0
 ***********************************************************
 
 Level_Initialize
-            * set the background map size to 256 x 64 blocks
-            ldd         #256
+            * set the background map size to 800 x 80 blocks
+            ldd         #MapWidth
             std         <Gfx_BkgrndMapWidth
-            ldd         #64
+            ldd         #MapHeight
             std         <Gfx_BkgrndMapHeight
-            * we need to allocate one more page for the tilemap (total size 16k)
-            lda         #2
+            * the loader only allocates 1 page for the tilemap in this level
+            * since we generate the map programmatically instead of loading it from disk,
+            * we need to allocate seven more pages for the tilemap (total size 64k)
+            lda         #8
             sta         <Gfx_BkgrndMapPages
             lda         #VH_BKMAP+1
+AllocBlocksLoop@
             jsr         MemMgr_AllocateBlock
-            * map the tilemap array to $8000-$BFFF
-            ldb         #5
-            jsr         MemMgr_MapBlock
+            inca
+            cmpa        #VH_BKMAP+8
+            bne         AllocBlocksLoop@
+            * clear the map
             lda         #VH_BKMAP
+ClearBlock@
+            pshs        a
             ldb         #4
             jsr         MemMgr_MapBlock
-            * clear the map
             ldd         #0
             ldx         #$8000
 !           std         ,x
@@ -85,56 +93,150 @@ Level_Initialize
             std         4,x
             std         6,x
             leax        8,x
-            cmpx        #$C000
+            cmpx        #$A000
             bne         <
+            puls        a
+            inca
+            cmpa        #VH_BKMAP+8
+            bne         ClearBlock@
             * draw an outline
+            lda         #VH_BKMAP
+            ldb         #4
+            jsr         MemMgr_MapBlock
             lda         #1
             ldx         #$8000
-            clrb
+            ldy         <Gfx_BkgrndMapWidth
 !           sta         ,x+
-            decb
+            leay        -1,y
             bne         <
-            lda         #2
+            ldb         #2
             leax        -1,x
-!           sta         ,x
-            leax        256,x
-            incb
-            cmpb        #63
+            lda         #VH_BKMAP
+            ldu         <Gfx_BkgrndMapWidth
+            stu         <SMC_leaxY1@+2,PCR
+            ldy         <Gfx_BkgrndMapHeight
+OutlineYL1@
+            stb         ,x
+            leay        -1,y
+            beq         EastWallDone@
+SMC_leaxY1@
+            leax        999,x                   * just use large number to force assembler to use 16-bit offset
+            cmpx        #$A000
+            blo         OutlineYL1@
+            inca                                * advance to the next tilemap page
+            leax        -$2000,x
+            pshs        a,b,x
+            ldb         #4
+            jsr         MemMgr_MapBlock
+            puls        a,b,x
+            bra         OutlineYL1@
+EastWallDone@
+            lda         #VH_BKMAP
+            ldb         #4
+            jsr         MemMgr_MapBlock
+            lda         #VH_BKMAP
+            ldb         #3
+            ldx         #$8000
+            ldu         <Gfx_BkgrndMapWidth
+            stu         <SMC_leaxY2@+2,PCR
+            ldy         <Gfx_BkgrndMapHeight
+OutlineYL2@
+            stb         ,x
+            leay        -1,y
+            beq         WestWallDone@
+SMC_leaxY2@
+            leax        999,x                   * just use large number to force assembler to use 16-bit offset
+            cmpx        #$A000
+            blo         OutlineYL2@
+            inca                                * advance to the next tilemap page
+            leax        -$2000,x
+            pshs        a,b,x
+            ldb         #4
+            jsr         MemMgr_MapBlock
+            puls        a,b,x
+            bra         OutlineYL2@
+WestWallDone@
+            inca                                * map in the next tilemap page in case we cross the boundary
+            cmpa        #VH_BKMAP+8
+            beq         >
+            pshs        x
+            ldb         #5
+            jsr         MemMgr_MapBlock
+            puls        x
+!           ldb         #4
+            ldy         <Gfx_BkgrndMapWidth
+!           stb         ,x+
+            leay        -1,y
             bne         <
-            lda         #3
-            leax        1,x
-            clrb
-!           sta         ,-x
-            decb
-            bne         <
-            lda         #4
-!           sta         ,x
-            leax        -256,x
-            incb
-            cmpb        #64
-            bne         <
+            * debug fixme: reset the $8000-$DFFF logical space to the first 2 pages of tilemap space
+            lda         #VH_BKMAP
+            ldb         #4
+            jsr         MemMgr_MapBlock
+            lda         #VH_BKMAP+1
+            ldb         #5
+            jsr         MemMgr_MapBlock
             * Fill in the map with tetris blocks
-            ldx         #750
+            ldx         #2000
 BlockLoop@
             pshs        x
 BlockTryX@
             * get random starting location
             jsr         Util_Random
-            cmpa        #2
-            blo         BlockTryX@
-            cmpa        #253
-            bhi         BlockTryX@
+            ldb         <Gfx_BkgrndMapHeight+1  * height must be less than 256 blocks
+            subb        #4
+            mul
+            adda        #2                      * A is random number between 2 and MapHeight-3
             pshs        a
-BlockTryY@
-            jsr         Util_Random
-            anda        #63
-            cmpa        #2
-            blo         BlockTryY@
-            cmpa        #61
-            bhi         BlockTryY@
-            puls        b
-            addd        #$8000                  * now D is pointer to tilemap candidate location
+            ldb         <Gfx_BkgrndMapWidth+1
+            mul
             tfr         d,x
+            puls        a
+            ldb         <Gfx_BkgrndMapWidth
+            mul
+            tfr         b,a
+            clrb
+            leax        d,x                     * X is offset to random tilemap row
+            ldd         <Gfx_BkgrndMapWidth
+            subd        #4
+            jsr         Util_RandomRange16
+            addd        #2
+            leax        d,x                     * X is offset to random tile in tilemap from (2,2) to (MaxX-3,MaxY-3)
+            tfr         x,d
+            anda        #$1F
+            exg         x,d                     * X is page offset (0000-1fff)
+            lsra
+            lsra
+            lsra
+            lsra
+            lsra                                * A is page number (0-7)
+            adda        #VH_BKMAP
+            cmpx        #$1000
+            blo         LowerPageHalf@
+            pshs        a,x
+            ldb         #4
+            jsr         MemMgr_MapBlock
+            puls        a
+            inca
+            incb
+            cmpa        #VH_BKMAP+8
+            beq         >
+            jsr         MemMgr_MapBlock
+!           puls        x
+            leax        $8000,x
+            bra         PickBlockType@
+LowerPageHalf@
+            pshs        a,x
+            ldb         #5
+            jsr         MemMgr_MapBlock
+            puls        a
+            deca
+            decb
+            cmpa        #VH_BKMAP-1
+            beq         >
+            jsr         MemMgr_MapBlock
+!           puls        x
+            leax        $A000,x
+PickBlockType@
             * select random block type and orientation
 !           jsr         Util_Random
             anda        #$7
@@ -157,13 +259,13 @@ BlockTryY@
             tsta
             bne         BlockGood@
             puls        a,b,x,y
-            bra         BlockTryX@
+            lbra         BlockTryX@
 BlockGood@
             puls        a,b,x,y
             jsr         Piece_Write
             puls        x
             leax        -1,x
-            bne         BlockLoop@
+            lbne         BlockLoop@
             * all done
             rts
 
@@ -173,138 +275,83 @@ BlockGood@
 *           B = color (1-4)
 *           Out: A=0 for fail, A=1 for pass
 Piece_Test
+            ldb         #4
+            stb         PieceCounter
             lsla
             ldu         #PTO_Table
             jmp         [a,u]
 
+PieceCounter fcb        0
+
 PTO_Table   fdb         TestO1,TestO2,TestO3,TestO4
 
+NegLines    fdb         0,-MapWidth,-MapWidth*2,-MapWidth*3
+PosLines    fdb         0,MapWidth,MapWidth*2,MapWidth*3
+
 TestO1      * +X, +Y
-            ldb         ,y
-            lda         1,y
+            ldu         #PosLines
+            ldb         1,y
+            lslb
+            ldd         b,u
             leau        d,x
+            lda         ,y++
+            leau        a,u
             jsr         Block_Test
             beq         >
-            ldb         2,y
-            lda         3,y
-            leau        d,x
-            jsr         Block_Test
-            beq         >
-            ldb         4,y
-            lda         5,y
-            leau        d,x
-            jsr         Block_Test
-            beq         >
-            ldb         6,y
-            lda         7,y
-            leau        d,x
-            jsr         Block_Test
-            beq         >
-            rts
-!           clra
-            rts
+            dec         PieceCounter
+            bne         TestO1
+!           rts
 
 TestO2      * -Y, +X
-            ldb         1,y
-            negb
-            sex
-            adda        ,y
+            ldu         #NegLines
+            ldb         ,y+
+            lslb
+            ldd         b,u
             leau        d,x
+            lda         ,y+
+            leau        a,u
             jsr         Block_Test
             beq         >
-            ldb         3,y
-            negb
-            sex
-            adda        2,y
-            leau        d,x
-            jsr         Block_Test
-            beq         >
-            ldb         5,y
-            negb
-            sex
-            adda        4,y
-            leau        d,x
-            jsr         Block_Test
-            beq         >
-            ldb         7,y
-            negb
-            sex
-            adda        6,y
-            leau        d,x
-            jsr         Block_Test
-            beq         >
-            rts
-!           clra
-            rts
+            dec         PieceCounter
+            bne         TestO2
+!           rts
             
 TestO3      * -X, -Y
-            ldb         ,y
-            negb
-            sex
-            suba        1,y
+            ldu         #NegLines
+            ldb         1,y
+            lslb
+            ldd         b,u
             leau        d,x
+            lda         ,y++
+            nega
+            leau        a,u
             jsr         Block_Test
             beq         >
-            ldb         2,y
-            negb
-            sex
-            suba        3,y
-            leau        d,x
-            jsr         Block_Test
-            beq         >
-            ldb         4,y
-            negb
-            sex
-            suba        5,y
-            leau        d,x
-            jsr         Block_Test
-            beq         >
-            ldb         6,y
-            negb
-            sex
-            suba        7,y
-            leau        d,x
-            jsr         Block_Test
-            beq         >
-            rts
-!           clra
-            rts
+            dec         PieceCounter
+            bne         TestO3
+!           rts
             
 TestO4      * +Y, -X
-            ldb         1,y
-            lda         ,y
-            nega
+            ldu         #PosLines
+            ldb         ,y+
+            lslb
+            ldd         b,u
             leau        d,x
+            lda         ,y+
+            nega
+            leau        a,u
             jsr         Block_Test
             beq         >
-            ldb         3,y
-            lda         2,y
-            nega
-            leau        d,x
-            jsr         Block_Test
-            beq         >
-            ldb         5,y
-            lda         4,y
-            nega
-            leau        d,x
-            jsr         Block_Test
-            beq         >
-            ldb         7,y
-            lda         6,y
-            nega
-            leau        d,x
-            jsr         Block_Test
-            beq         >
-            rts
-!           clra
-            rts
+            dec         PieceCounter
+            bne         TestO4
+!           rts
 
 Block_Test
-            tst         -257,u
+            tst         -MapWidth-1,u
             bne         >
-            tst         -256,u
+            tst         -MapWidth,u
             bne         >
-            tst         -255,u
+            tst         -MapWidth+1,u
             bne         >
             tst         -1,u
             bne         >
@@ -312,11 +359,11 @@ Block_Test
             bne         >
             tst         1,u
             bne         >
-            tst         255,u
+            tst         MapWidth-1,u
             bne         >
-            tst         256,u
+            tst         MapWidth,u
             bne         >
-            tst         257,u
+            tst         MapWidth+1,u
             bne         >
             lda         #1
             rts
@@ -330,124 +377,77 @@ Piece_Write
 *           B = color (1-4)
             lsla
             ldu         #PWO_Table
-            jmp         [a,u]
+            leau        a,u
+            lda         #4
+            sta         PieceCounter
+            jmp         [,u]
 
 PWO_Table   fdb         WriteO1,WriteO2,WriteO3,WriteO4
 
 WriteO1     * +X, +Y
             pshs        b
-            ldb         ,y
-            lda         1,y
+!           ldu         #PosLines
+            ldb         1,y
+            lslb
+            ldd         b,u
             leau        d,x
+            lda         ,y++
+            leau        a,u
             ldb         ,s
             stb         ,u
-            ldb         2,y
-            lda         3,y
-            leau        d,x
-            ldb         ,s
-            stb         ,u
-            ldb         4,y
-            lda         5,y
-            leau        d,x
-            ldb         ,s
-            stb         ,u
-            ldb         6,y
-            lda         7,y
-            leau        d,x
-            ldb         ,s
-            stb         ,u
-            leas        1,s
+            dec         PieceCounter
+            bne         <
+            puls        b
             rts
 
 WriteO2     * -Y, +X
             pshs        b
-            ldb         1,y
-            negb
-            sex
-            adda        ,y
+!           ldu         #NegLines
+            ldb         ,y+
+            lslb
+            ldd         b,u
             leau        d,x
+            lda         ,y+
+            leau        a,u
             ldb         ,s
             stb         ,u
-            ldb         3,y
-            negb
-            sex
-            adda        2,y
-            leau        d,x
-            ldb         ,s
-            stb         ,u
-            ldb         5,y
-            negb
-            sex
-            adda        4,y
-            leau        d,x
-            ldb         ,s
-            stb         ,u
-            ldb         7,y
-            negb
-            sex
-            adda        6,y
-            leau        d,x
-            ldb         ,s
-            stb         ,u
-            leas        1,s
+            dec         PieceCounter
+            bne         <
+            puls        b
             rts
-            
+
 WriteO3     * -X, -Y
             pshs        b
-            ldd         #0
-            subb        ,y
-            sbca        1,y
+!           ldu         #NegLines
+            ldb         1,y
+            lslb
+            ldd         b,u
             leau        d,x
+            lda         ,y++
+            nega
+            leau        a,u
             ldb         ,s
             stb         ,u
-            ldd         #0
-            subb        2,y
-            sbca        3,y
-            leau        d,x
-            ldb         ,s
-            stb         ,u
-            ldd         #0
-            subb        4,y
-            sbca        5,y
-            leau        d,x
-            ldb         ,s
-            stb         ,u
-            ldd         #0
-            subb        6,y
-            sbca        7,y
-            leau        d,x
-            ldb         ,s
-            stb         ,u
-            leas        1,s
+            dec         PieceCounter
+            bne         <
+            puls        b
             rts
-            
+
 WriteO4     * +Y, -X
             pshs        b
-            ldb         1,y
-            lda         ,y
-            nega
+!           ldu         #PosLines
+            ldb         ,y+
+            lslb
+            ldd         b,u
             leau        d,x
+            lda         ,y+
+            nega
+            leau        a,u
             ldb         ,s
             stb         ,u
-            ldb         3,y
-            lda         2,y
-            nega
-            leau        d,x
-            ldb         ,s
-            stb         ,u
-            ldb         5,y
-            lda         4,y
-            nega
-            leau        d,x
-            ldb         ,s
-            stb         ,u
-            ldb         7,y
-            lda         6,y
-            nega
-            leau        d,x
-            ldb         ,s
-            stb         ,u
-            leas        1,s
+            dec         PieceCounter
+            bne         <
+            puls        b
             rts
 
 ***********************************************************
