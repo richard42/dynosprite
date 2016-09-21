@@ -265,8 +265,8 @@ UpdateObjDone@
             jmp         mainloop
 
 *           The stack grows downwards from $4000
-*           We should save at least 64 bytes for the stack
-            rmb        $3FC0-*                  * throw an error if Primary code page overflowed
+*           We should save at least 80 bytes for the stack
+            rmb        $3FB0-*                  * throw an error if Primary code page overflowed
 
 ***********************************************************
 *           The game directories and dynamic heap are stored in the first page of BASIC memory
