@@ -45,7 +45,7 @@ StrLoop@
 * Util_Random:
 * - IN:      
 * - OUT:     A=psuedo-random number
-* - Trashed: A,B
+* - Trashed: A
 ***********************************************************
 VarX@           fcb     18
 VarA@           fcb     166
@@ -64,6 +64,24 @@ Util_Random
             eora        VarA@
             adda        VarC@
             sta         VarC@
+            rts
+
+
+***********************************************************
+* Util_RandomRange16:
+* - IN:      D=maximum value
+* - OUT:     D=psuedo-random number between 0 and Din
+* - Trashed: None
+***********************************************************
+*
+Util_RandomRange16
+            std         Math_Multiplier_16
+            bsr         Util_Random
+            sta         Math_Multiplicand_16
+            bsr         Util_Random
+            sta         Math_Multiplicand_16+1
+            jsr         Math_Multiply16by16
+            ldd         Math_Product_32
             rts
 
 
