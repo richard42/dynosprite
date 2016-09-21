@@ -520,11 +520,8 @@ FoundBlock@
             swi                                 * error, virtual/physical table inconsistency
  ENDC
 PhysMapGood@
-            * Step 4: remap virtual table from old physical block to new one
-            puls        x
+            * Step 4: remap any logical (6809) blocks in MMU from old to new physical block
             lda         NewPhysBlk@
-            sta         ,x
-            * Step 5: remap any logical (6809) blocks in MMU from old to new physical block
             ldx         #$FFA0
 MMULoop@    ldb         ,x
             andb        #$3F
@@ -535,6 +532,9 @@ MMULoopTail@
             leax        1,x
             cmpx        #$FFA8
             bne         MMULoop@
+            * Step 5: remap virtual table from old physical block to new one
+            puls        x
+            sta         ,x
             * Step 6: Set the old physical block to 'free'
             lda         #$ff
             ldb         OldPhysBlk@
