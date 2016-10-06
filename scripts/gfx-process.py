@@ -375,7 +375,7 @@ if __name__ == "__main__":
             f.write("\n")
         f.close()
         # all done!
-        print "Tileset %s generated, with %i tiles, containing %i unique colors" % (ImageFilename, idx, len(NewPalette))
+        print "Tileset %s generated from image %s, with %i tiles, containing %i unique colors" % (tileset_fname, ImageFilename, idx, len(NewPalette))
     elif modeIdx == 2:
         # gentilemap
         print "Error: gentilemap not yet supported!"
