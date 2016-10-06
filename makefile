@@ -19,7 +19,7 @@ GENLISTDIR = $(BUILDDIR)/list
 GENDISKDIR = $(BUILDDIR)/disk
 
 # lists of source game assets
-TILESRC = $(wildcard $(TILEDIR)/??-*.txt)
+TILEDESC = $(wildcard $(TILEDIR)/??-*.txt)
 LEVELSRC = $(wildcard $(LEVELDIR)/??-*.asm)
 SPRITESRC = $(wildcard $(SPRITEDIR)/??-*.spr)
 OBJECTSRC = $(wildcard $(OBJECTDIR)/??-*.asm)
@@ -30,6 +30,8 @@ LEVELMAP = $(wildcard $(LEVELDIR)/??-*.map)
 LEVELDSC = $(wildcard $(LEVELDIR)/??-*.txt)
 
 # lists of build products based on game assets
+TILESRC = $(patsubst $(TILEDIR)/%.txt, $(GENOBJDIR)/tileset%.txt, $(TILEDESC))
+PALSRC = $(patsubst $(TILEDIR)/%.txt, $(GENOBJDIR)/palette%.txt, $(TILEDESC))
 SPRITERAW := $(patsubst $(SPRITEDIR)/%.spr, $(GENOBJDIR)/sprite%.raw, $(SPRITESRC))
 OBJECTRAW := $(patsubst $(OBJECTDIR)/%.asm, $(GENOBJDIR)/object%.raw, $(OBJECTSRC))
 SOUNDRAW := $(patsubst $(SOUNDDIR)/%.wav, $(GENOBJDIR)/sound%.raw, $(SOUNDSRC))
@@ -151,65 +153,69 @@ test:
 $(COCODISKGEN): $(TOOLDIR)/src/file2dsk/main.c
 	gcc -o $@ $<
 
-# 1. Compile sprites to 6809 assembly code
+# 1a. Generate text Palette and Tileset files from images
+$(GENOBJDIR)/tileset%.txt $(GENOBJDIR)/palette%.txt: $(TILEDIR)/%.txt
+	$(SCRIPTDIR)/gfx-process.py gentileset $< $(GENOBJDIR)/palette$*.txt $(GENOBJDIR)/tileset$*.txt
+
+# 2. Compile sprites to 6809 assembly code
 $(GENASMDIR)/sprite%.asm: $(SPRITEDIR)/%.spr $(SCRIPTDIR)/sprite2asm.py
 	$(SCRIPTDIR)/sprite2asm.py $< $@ $(CPU)
 
-# 2. Assemble sprites to raw machine code
+# 3. Assemble sprites to raw machine code
 $(GENOBJDIR)/sprite%.raw: $(GENASMDIR)/sprite%.asm
 	$(ASSEMBLER) $(ASMFLAGS) -r -o $@ --list=$(GENLISTDIR)/sprite$*.lst --symbols $<
 
-# 3. Run first-pass assembly of DynoSprite engine
+# 4. Run first-pass assembly of DynoSprite engine
 $(PASS1LIST): $(LOADERSRC)
 	$(ASSEMBLER) $(ASMFLAGS) --define=PASS=1 -b -o /dev/null --list=$(PASS1LIST) --symbols $(SRCDIR)/main.asm
 
-# 4. Extract symbol addresses from DynoSprite engine
+# 5. Extract symbol addresses from DynoSprite engine
 $(SYMBOLASM): $(SCRIPTDIR)/symbol-extract.py $(PASS1LIST)
 	$(SCRIPTDIR)/symbol-extract.py $(PASS1LIST) $(SYMBOLASM)
 
-# 5. Assemble Object handling routines to raw machine code
+# 6. Assemble Object handling routines to raw machine code
 $(GENOBJDIR)/object%.raw: $(OBJECTDIR)/%.asm $(SRCDIR)/datastruct.asm $(SYMBOLASM)
 	$(ASSEMBLER) $(ASMFLAGS) -r -I $(SRCDIR) -I $(GENASMDIR)/ -o $@ --list=$(GENLISTDIR)/object$*.lst --symbols $<
 
-# 6. Assemble Level handling routines to raw machine code
+# 7. Assemble Level handling routines to raw machine code
 $(GENOBJDIR)/level%.raw: $(LEVELDIR)/%.asm $(SRCDIR)/datastruct.asm $(SYMBOLASM)
 	$(ASSEMBLER) $(ASMFLAGS) -r -I $(SRCDIR) -I $(GENASMDIR)/ -o $@ --list=$(GENLISTDIR)/level$*.lst --symbols $<
 
-# 7. Build Object data file and game directory assembler code
+# 8. Build Object data file and game directory assembler code
 $(DATA_OBJECTS) $(ASM_OBJECTS): $(SCRIPTDIR)/build-objects.py $(SPRITERAW) $(OBJECTRAW)
 	$(SCRIPTDIR)/build-objects.py $(GENOBJDIR) $(GENLISTDIR) $(GENDISKDIR) $(GENASMDIR)
 
-# 8. Build Level data file and game directory assembler code
+# 9. Build Level data file and game directory assembler code
 $(DATA_LEVELS) $(ASM_LEVELS): $(SCRIPTDIR)/build-levels.py $(PASS1LIST) $(LEVELRAW) $(LEVELMAP) $(LEVELDSC)
 	$(SCRIPTDIR)/build-levels.py $(LEVELDIR) $(PASS1LIST) $(GENOBJDIR) $(GENLISTDIR) $(GENDISKDIR) $(GENASMDIR)
 
-# 9. Build Tileset data file and game directory assembler code
-$(DATA_TILES) $(ASM_TILES): $(SCRIPTDIR)/build-tiles.py $(TILESRC)
-	$(SCRIPTDIR)/build-tiles.py $(TILEDIR) $(GENDISKDIR) $(GENASMDIR)
+#10. Build Tileset data file and game directory assembler code
+$(DATA_TILES) $(ASM_TILES): $(SCRIPTDIR)/build-tiles.py $(TILESRC) $(PALSRC)
+	$(SCRIPTDIR)/build-tiles.py $(GENOBJDIR) $(GENDISKDIR) $(GENASMDIR)
 
-#10. Resample audio files
+#11. Resample audio files
 $(GENOBJDIR)/sound%.raw: $(SOUNDDIR)/%.wav
 	echo Converting audio waveform: $<
 	ffmpeg -v warning -i $< -acodec pcm_u8 -f u8 -ac 1 -ar $(AUDIORATE) -af aresample=$(AUDIORATE):filter_size=256:cutoff=1.0 $@
 
-#11. Build Sound data file and game directory assembler code
+#12. Build Sound data file and game directory assembler code
 $(DATA_SOUNDS) $(ASM_SOUNDS): $(SCRIPTDIR)/build-sounds.py $(SOUNDRAW)
 	$(SCRIPTDIR)/build-sounds.py  $(GENOBJDIR) $(GENDISKDIR) $(GENASMDIR)
 
-#12. Build Images data file and game directory assembler code
+#13. Build Images data file and game directory assembler code
 $(DATA_IMAGES) $(ASM_IMAGES): $(SCRIPTDIR)/build-images.py $(IMAGESRC)
 	$(SCRIPTDIR)/build-images.py  $(IMAGEDIR) $(GENDISKDIR) $(GENASMDIR)
 
-#13. Run final assembly pass of DynoSprite engine and relocate code sections
+#14. Run final assembly pass of DynoSprite engine and relocate code sections
 $(LOADERBIN): $(LOADERSRC) $(ASM_TILES) $(ASM_OBJECTS) $(ASM_LEVELS) $(ASM_SOUNDS) $(ASM_IMAGES) $(SCRIPTDIR)/binsectionmover.py
 	$(ASSEMBLER) $(ASMFLAGS) --define=PASS=2 -b -I $(GENASMDIR)/ -o $(LOADERBIN) --list=$(PASS2LIST) $(SRCDIR)/main.asm
 	$(SCRIPTDIR)/binsectionmover.py $(LOADERBIN) 0e00-1fff 4000 e000-ffff 6000
 
-#14. Generate the README.BAS document
+#15. Generate the README.BAS document
 $(READMEBAS): $(SCRIPTDIR)/build-readme.py $(GAMEDIR)/readme-bas.txt
 	$(SCRIPTDIR)/build-readme.py $(GAMEDIR)/readme-bas.txt $(READMEBAS)
 
-#15. Create Coco disk image (file2dsk))
+#16. Create Coco disk image (file2dsk))
 $(TARGET): $(COCODISKGEN) $(DISKFILES)
 	rm -f $(TARGET)
 	$(COCODISKGEN) $(TARGET) $(DISKFILES)

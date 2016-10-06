@@ -31,9 +31,10 @@ import sys
 from compression import *
 
 class Tileset:
-    def __init__(self, filename):
-        self.filename = filename
-        self.number = int(filename[:2])
+    def __init__(self, palfilename, tilefilename):
+        self.palfilename = palfilename
+        self.tilefilename = tilefilename
+        self.number = int(tilefilename[7:9])
         self.palettes = [ None, None ]
         self.tiles = [ ]
     def validate(self):
@@ -41,26 +42,26 @@ class Tileset:
         # check palette arrays
         for p in range(2):
             if self.palettes[p] == None:
-                print "****Error: missing %s palette in tileset '%s'" % (palNames[p], self.filename)
+                print "****Error: missing %s palette in file '%s'" % (palNames[p], self.palfilename)
                 return False
             if len(self.palettes[p]) != 16:
-                print "****Error: %s palette length is %i (should be 16) in tileset '%s'" % (palNames[p], len(self.palettes[p]), self.filename)
+                print "****Error: %s palette length is %i (should be 16) in file '%s'" % (palNames[p], len(self.palettes[p]), self.palfilename)
                 return False
             for i in range(16):
                 clrIdx = self.palettes[p][i]
                 if clrIdx < 0 or clrIdx > 63:
-                    print "****Error: invalid color value %i in %s palette in tileset '%s'" % (clrIdx, palNames[p], self.filename)
+                    print "****Error: invalid color value %i in %s palette in file '%s'" % (clrIdx, palNames[p], self.palfilename)
                     return False
         # check each tile
         numTiles = len(self.tiles)
         for i in range(numTiles):
             tile = self.tiles[i]
             if len(tile) != 128:
-                print "****Error: invalid data length %i (should be 128) for tile %i in tileset '%s'" % (len(tile), i, self.filename)
+                print "****Error: invalid data length %i (should be 128) for tile %i in tileset '%s'" % (len(tile), i, self.tilefilename)
                 return False
             for pixVal in tile:
                 if pixVal < 0 or pixVal > 255:
-                    print "****Error: invalid pixel value %i in tile %i in tileset '%s'" % (pixVal, i, self.filename)
+                    print "****Error: invalid pixel value %i in tile %i in tileset '%s'" % (pixVal, i, self.tilefilename)
                     return False
         return True
 
@@ -69,10 +70,8 @@ def SaveMatrix(tileset, section, matrix):
         tileset.palettes[0] = matrix
     elif section == "palette-rgb":
         tileset.palettes[1] = matrix
-    elif section == "tiles":
-        tileset.tiles.append(matrix)
-    elif mode != None:
-        print "****Error: Invalid section '%s' in tileset file '%s'" % (section, tileset.filename)
+    elif section != None:
+        print "****Error: Invalid section '%s' in palette file '%s'" % (section, tileset.palfilename)
         sys.exit(1)
     return
 
@@ -84,22 +83,28 @@ if __name__ == "__main__":
     print "DynoSprite Tile Builder script"
     # get input paths
     if len(sys.argv) != 4:
-        print "****Usage: %s <in_tile_folder> <out_cc3_folder> <out_asm_folder>" % sys.argv[0]
+        print "****Usage: %s <in_buildobj_folder> <out_cc3_folder> <out_asm_folder>" % sys.argv[0]
         sys.exit(1)
-    tiledir = sys.argv[1]
+    buildobjdir = sys.argv[1]
     cc3dir = sys.argv[2]
     asmdir = sys.argv[3]
-    # make list of tile description files found
-    filelist = os.listdir(tiledir)
-    filelist = [name for name in filelist if len(name) >= 6 and name[:2].isdigit() and name[-4:].lower() == ".txt"]
-    filelist.sort()
-    print "    Found %i tilesets" % len(filelist)
-    # parse each file
+    # make list of tileset and palette files found
+    filelist = os.listdir(buildobjdir)
+    setnames = [name[7:-4] for name in filelist if len(name) >= 15 and name[:7] == 'tileset' and name[7:9].isdigit() and name[-4:].lower() == ".txt"]
+    setnames.sort()
+    print "    Found %i tilesets" % len(setnames)
+    # parse each tileset/palette file pair
     tilesets = []
-    for filename in filelist:
-        f = open(os.path.join(tiledir, filename), "r").read()
+    for tilesetprefix in setnames:
+        tilesetfilename = "tileset%s.txt" % tilesetprefix
+        palettefilename = "palette%s.txt" % tilesetprefix
+        if not os.path.exists(os.path.join(buildobjdir, palettefilename)):
+            print "****Error: Matching palette file '%s' not found!" % palettefilename
+            sys.exit(1)
         mode = None
-        curSet = Tileset(filename)
+        curSet = Tileset(palettefilename, tilesetfilename)
+        # load palettes
+        f = open(os.path.join(buildobjdir, palettefilename), "r").read()
         matrix = [ ]
         for line in f.split("\n"):
             # remove comments and whitespace from line
@@ -118,9 +123,21 @@ if __name__ == "__main__":
                 matrix = [ ]
                 continue
             # handle palette values (decimal)
-            if mode != None and len(mode) > 7 and mode[:7] == "palette":
-                newvalues = [int(v) for v in line.split()]
-                matrix.extend(newvalues)
+            newvalues = [int(v) for v in line.split()]
+            matrix.extend(newvalues)
+        # save last matrix
+        if len(matrix) > 0:
+            SaveMatrix(curSet, mode, matrix)
+        # load tiles
+        f = open(os.path.join(buildobjdir, tilesetfilename), "r").read()
+        matrix = [ ]
+        for line in f.split("\n"):
+            # remove comments and whitespace from line
+            pivot = line.find("*")
+            if pivot != -1:
+                line = line[:pivot]
+            line = line.strip()
+            if len(line) < 1:
                 continue
             # handle tile pixel values (hex)
             pix = "".join(line.split())
@@ -133,10 +150,6 @@ if __name__ == "__main__":
             if len(matrix) == 128:
                 curSet.tiles.append(matrix)
                 matrix = [ ]
-            continue
-        # save any previous matrix being defined at end of file
-        if len(matrix) > 0:
-            SaveMatrix(curSet, mode, matrix)
         # validate this tileset
         if not curSet.validate():
             sys.exit(1)
@@ -169,7 +182,7 @@ if __name__ == "__main__":
     s = str(len(tilesets))
     f.write((" " * 24) + "fcb     " + s + (" " * (16 - len(s))) + "* number of tilesets\n")
     for i in range(len(tilesets)):
-        f.write((" " * 24) + "* " + tilesets[i].filename + "\n")
+        f.write((" " * 24) + "* " + tilesets[i].tilefilename + "\n")
         s = str(tilesets[i].number)
         f.write((" " * 24) + "fcb     " + s + (" " * (16-len(s))) + "* tileset number\n")
         s = str(len(tilesets[i].tiles))
