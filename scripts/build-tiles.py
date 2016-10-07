@@ -82,14 +82,15 @@ def SaveMatrix(tileset, section, matrix):
 if __name__ == "__main__":
     print "DynoSprite Tile Builder script"
     # get input paths
-    if len(sys.argv) != 4:
-        print "****Usage: %s <in_buildobj_folder> <out_cc3_folder> <out_asm_folder>" % sys.argv[0]
+    if len(sys.argv) != 5:
+        print "****Usage: %s <in_gfx_folder> <in_buildobj_folder> <out_cc3_folder> <out_asm_folder>" % sys.argv[0]
         sys.exit(1)
-    buildobjdir = sys.argv[1]
-    cc3dir = sys.argv[2]
-    asmdir = sys.argv[3]
+    gfxdir = sys.argv[1]
+    buildobjdir = sys.argv[2]
+    cc3dir = sys.argv[3]
+    asmdir = sys.argv[4]
     # make list of tileset and palette files found
-    filelist = os.listdir(buildobjdir)
+    filelist = os.listdir(gfxdir)
     setnames = [name[7:-4] for name in filelist if len(name) >= 15 and name[:7] == 'tileset' and name[7:9].isdigit() and name[-4:].lower() == ".txt"]
     setnames.sort()
     print "    Found %i tilesets" % len(setnames)
@@ -98,13 +99,13 @@ if __name__ == "__main__":
     for tilesetprefix in setnames:
         tilesetfilename = "tileset%s.txt" % tilesetprefix
         palettefilename = "palette%s.txt" % tilesetprefix
-        if not os.path.exists(os.path.join(buildobjdir, palettefilename)):
+        if not os.path.exists(os.path.join(gfxdir, palettefilename)):
             print "****Error: Matching palette file '%s' not found!" % palettefilename
             sys.exit(1)
         mode = None
         curSet = Tileset(palettefilename, tilesetfilename)
         # load palettes
-        f = open(os.path.join(buildobjdir, palettefilename), "r").read()
+        f = open(os.path.join(gfxdir, palettefilename), "r").read()
         matrix = [ ]
         for line in f.split("\n"):
             # remove comments and whitespace from line
@@ -129,7 +130,7 @@ if __name__ == "__main__":
         if len(matrix) > 0:
             SaveMatrix(curSet, mode, matrix)
         # load tiles
-        f = open(os.path.join(buildobjdir, tilesetfilename), "r").read()
+        f = open(os.path.join(gfxdir, tilesetfilename), "r").read()
         matrix = [ ]
         for line in f.split("\n"):
             # remove comments and whitespace from line

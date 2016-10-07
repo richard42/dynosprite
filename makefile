@@ -14,6 +14,7 @@ OBJECTDIR = $(GAMEDIR)/objects
 SOUNDDIR = $(GAMEDIR)/sounds
 IMAGEDIR = $(GAMEDIR)/images
 GENASMDIR = $(BUILDDIR)/asm
+GENGFXDIR = $(BUILDDIR)/gfx
 GENOBJDIR = $(BUILDDIR)/obj
 GENLISTDIR = $(BUILDDIR)/list
 GENDISKDIR = $(BUILDDIR)/disk
@@ -29,13 +30,13 @@ LEVELSRC = $(wildcard $(LEVELDIR)/??-*.asm)
 LEVELDSC = $(wildcard $(LEVELDIR)/??-*.txt)
 
 # lists of build products based on game assets
-TILESRC = $(patsubst $(TILEDIR)/%.txt, $(GENOBJDIR)/tileset%.txt, $(TILEDESC))
-PALSRC = $(patsubst $(TILEDIR)/%.txt, $(GENOBJDIR)/palette%.txt, $(TILEDESC))
+TILESRC = $(patsubst $(TILEDIR)/%.txt, $(GENGFXDIR)/tileset%.txt, $(TILEDESC))
+PALSRC = $(patsubst $(TILEDIR)/%.txt, $(GENGFXDIR)/palette%.txt, $(TILEDESC))
 SPRITERAW := $(patsubst $(SPRITEDIR)/%.spr, $(GENOBJDIR)/sprite%.raw, $(SPRITESRC))
 OBJECTRAW := $(patsubst $(OBJECTDIR)/%.asm, $(GENOBJDIR)/object%.raw, $(OBJECTSRC))
 SOUNDRAW := $(patsubst $(SOUNDDIR)/%.wav, $(GENOBJDIR)/sound%.raw, $(SOUNDSRC))
 LEVELRAW := $(patsubst $(LEVELDIR)/%.asm, $(GENOBJDIR)/level%.raw, $(LEVELSRC))
-MAPSRC := $(patsubst $(LEVELDIR)/%.txt, $(GENOBJDIR)/tilemap%.txt, $(LEVELDSC))
+MAPSRC := $(patsubst $(LEVELDIR)/%.txt, $(GENGFXDIR)/tilemap%.txt, $(LEVELDSC))
 
 # output ASM files generated from sprites
 SPRITEASMSRC := $(patsubst $(SPRITEDIR)/%.spr, $(GENASMDIR)/sprite%.asm, $(filter %.spr, $(SPRITESRC)))
@@ -47,6 +48,7 @@ EMULATOR = $(TOOLDIR)/mess64
 
 # make sure build products directories exist
 $(shell mkdir -p $(GENASMDIR))
+$(shell mkdir -p $(GENGFXDIR))
 $(shell mkdir -p $(GENOBJDIR))
 $(shell mkdir -p $(GENLISTDIR))
 $(shell mkdir -p $(GENDISKDIR))
@@ -142,7 +144,7 @@ targets:
 all: $(TARGET)
 
 clean:
-	rm -rf $(GENASMDIR) $(GENOBJDIR) $(GENDISKDIR) $(GENLISTDIR)
+	rm -rf $(GENASMDIR) $(GENGFXDIR) $(GENOBJDIR) $(GENDISKDIR) $(GENLISTDIR)
 
 test:
 	$(EMULATOR) coco3h -flop1 $(TARGET) $(MAMEFLAGS) -window -waitvsync -resolution 640x480 -video opengl -rompath /mnt/terabyte/pyro/Emulators/firmware/
@@ -154,12 +156,12 @@ $(COCODISKGEN): $(TOOLDIR)/src/file2dsk/main.c
 	gcc -o $@ $<
 
 # 1a. Generate text Palette and Tileset files from images
-$(GENOBJDIR)/tileset%.txt $(GENOBJDIR)/palette%.txt: $(TILEDIR)/%.txt
-	$(SCRIPTDIR)/gfx-process.py gentileset $< $(GENOBJDIR)/palette$*.txt $(GENOBJDIR)/tileset$*.txt
+$(GENGFXDIR)/tileset%.txt $(GENGFXDIR)/palette%.txt: $(TILEDIR)/%.txt
+	$(SCRIPTDIR)/gfx-process.py gentileset $< $(GENGFXDIR)/palette$*.txt $(GENGFXDIR)/tileset$*.txt
 
 # 1b. Generate text Tilemap files from images
-$(GENOBJDIR)/tilemap%.txt: $(LEVELDIR)/%.txt $(TILESRC) $(PALSRC)
-	$(SCRIPTDIR)/gfx-process.py gentilemap $< $(GENOBJDIR) $@
+$(GENGFXDIR)/tilemap%.txt: $(LEVELDIR)/%.txt $(TILESRC) $(PALSRC)
+	$(SCRIPTDIR)/gfx-process.py gentilemap $< $(GENGFXDIR) $@
 
 # 2. Compile sprites to 6809 assembly code
 $(GENASMDIR)/sprite%.asm: $(SPRITEDIR)/%.spr $(SCRIPTDIR)/sprite2asm.py
@@ -191,11 +193,11 @@ $(DATA_OBJECTS) $(ASM_OBJECTS): $(SCRIPTDIR)/build-objects.py $(SPRITERAW) $(OBJ
 
 # 9. Build Level data file and game directory assembler code
 $(DATA_LEVELS) $(ASM_LEVELS): $(SCRIPTDIR)/build-levels.py $(PASS1LIST) $(LEVELRAW) $(MAPSRC) $(LEVELDSC)
-	$(SCRIPTDIR)/build-levels.py $(LEVELDIR) $(PASS1LIST) $(GENOBJDIR) $(GENLISTDIR) $(GENDISKDIR) $(GENASMDIR)
+	$(SCRIPTDIR)/build-levels.py $(LEVELDIR) $(PASS1LIST) $(GENGFXDIR) $(GENOBJDIR) $(GENLISTDIR) $(GENDISKDIR) $(GENASMDIR)
 
 #10. Build Tileset data file and game directory assembler code
 $(DATA_TILES) $(ASM_TILES): $(SCRIPTDIR)/build-tiles.py $(TILESRC) $(PALSRC)
-	$(SCRIPTDIR)/build-tiles.py $(GENOBJDIR) $(GENDISKDIR) $(GENASMDIR)
+	$(SCRIPTDIR)/build-tiles.py $(GENGFXDIR) $(GENOBJDIR) $(GENDISKDIR) $(GENASMDIR)
 
 #11. Resample audio files
 $(GENOBJDIR)/sound%.raw: $(SOUNDDIR)/%.wav

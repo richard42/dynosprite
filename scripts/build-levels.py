@@ -240,15 +240,16 @@ def StringOut(inString):
 if __name__ == "__main__":
     print "DynoSprite Level Builder script"
     # get input paths
-    if len(sys.argv) != 7:
-        print "****Usage: %s <in_level_folder> <dynosprite-pass1.lst> <in_raw_folder> <in_list_folder> <out_cc3_folder> <out_asm_folder>" % sys.argv[0]
+    if len(sys.argv) != 8:
+        print "****Usage: %s <in_level_folder> <dynosprite-pass1.lst> <in_gfx_folder> <in_raw_folder> <in_list_folder> <out_cc3_folder> <out_asm_folder>" % sys.argv[0]
         sys.exit(1)
     leveldir = sys.argv[1]
     dynolist = sys.argv[2]
-    rawdir = sys.argv[3]
-    listdir = sys.argv[4]
-    cc3dir = sys.argv[5]
-    asmdir = sys.argv[6]
+    gfxdir = sys.argv[3]
+    rawdir = sys.argv[4]
+    listdir = sys.argv[5]
+    cc3dir = sys.argv[6]
+    asmdir = sys.argv[7]
     # make lists of level files (description, raw/list from asm source, tilemap) found
     filelist = os.listdir(leveldir)
     lvlDescFiles = [name for name in filelist if len(name) >= 6 and name[:2].isdigit() and name[-4:].lower() == ".txt"]
@@ -256,10 +257,11 @@ if __name__ == "__main__":
     rawlist = os.listdir(rawdir)
     listlist = os.listdir(listdir)
     lvlRawFiles = [name for name in rawlist if len(name) >= 11 and name[:5] == "level" and name[5:7].isdigit() and name[-4:].lower() == ".raw"]
-    lvlRawFiles.sort()                                        
+    lvlRawFiles.sort()
     lvlListFiles = [name for name in listlist if len(name) >= 11 and name[:5] == "level" and name[5:7].isdigit() and name[-4:].lower() == ".lst"]
-    lvlListFiles.sort()                                        
-    lvlMapFiles = [name for name in rawlist if len(name) >= 13 and name[:7] == "tilemap" and name[7:9].isdigit() and name[-4:].lower() == ".txt"]
+    lvlListFiles.sort()
+    gfxlist = os.listdir(gfxdir)
+    lvlMapFiles = [name for name in gfxlist if len(name) >= 13 and name[:7] == "tilemap" and name[7:9].isdigit() and name[-4:].lower() == ".txt"]
     lvlMapFiles.sort()
     # make sure we have same # of files in each list
     numLevels = len(lvlDescFiles)
@@ -284,7 +286,7 @@ if __name__ == "__main__":
         lvl.validateCode(lvlListFiles[i])
         lvl.parseDescription(os.path.join(leveldir, lvlDescFiles[i]), dynosymbols)
         lvl.validateParameters(lvlDescFiles[i])
-        lvl.parseMap(os.path.join(rawdir, lvlMapFiles[i]))
+        lvl.parseMap(os.path.join(gfxdir, lvlMapFiles[i]))
         comp = Compressor(lvl.tilemap)
         lvl.CompMap = comp.Deflate(bPrintInfo=False, bUseGzip=True)
         lvl.generateData()
