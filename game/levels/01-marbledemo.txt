@@ -9,8 +9,9 @@ Description = "Bubbles In A Box"
 ObjectGroups = 1, 2
 MaxObjectTableSize = 5
 Tileset = 0
-TilemapWidth = 32
-TilemapHeight = 32
+TilemapImage = ../tiles/00-rainbowpyramids.gif
+TilemapStart = 0,0
+TilemapSize = 304,192
 * The background starting X coordinate is in bytes (2-pixels/byte)
 BkgrndStartX = 944
 BkgrndStartY = 416

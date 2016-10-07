@@ -26,7 +26,6 @@ OBJECTSRC = $(wildcard $(OBJECTDIR)/??-*.asm)
 SOUNDSRC = $(wildcard $(SOUNDDIR)/??-*.wav)
 IMAGESRC = $(wildcard $(IMAGEDIR)/??-*.png)
 LEVELSRC = $(wildcard $(LEVELDIR)/??-*.asm)
-LEVELMAP = $(wildcard $(LEVELDIR)/??-*.map)
 LEVELDSC = $(wildcard $(LEVELDIR)/??-*.txt)
 
 # lists of build products based on game assets
@@ -36,6 +35,7 @@ SPRITERAW := $(patsubst $(SPRITEDIR)/%.spr, $(GENOBJDIR)/sprite%.raw, $(SPRITESR
 OBJECTRAW := $(patsubst $(OBJECTDIR)/%.asm, $(GENOBJDIR)/object%.raw, $(OBJECTSRC))
 SOUNDRAW := $(patsubst $(SOUNDDIR)/%.wav, $(GENOBJDIR)/sound%.raw, $(SOUNDSRC))
 LEVELRAW := $(patsubst $(LEVELDIR)/%.asm, $(GENOBJDIR)/level%.raw, $(LEVELSRC))
+MAPSRC := $(patsubst $(LEVELDIR)/%.txt, $(GENOBJDIR)/tilemap%.txt, $(LEVELDSC))
 
 # output ASM files generated from sprites
 SPRITEASMSRC := $(patsubst $(SPRITEDIR)/%.spr, $(GENASMDIR)/sprite%.asm, $(filter %.spr, $(SPRITESRC)))
@@ -157,6 +157,10 @@ $(COCODISKGEN): $(TOOLDIR)/src/file2dsk/main.c
 $(GENOBJDIR)/tileset%.txt $(GENOBJDIR)/palette%.txt: $(TILEDIR)/%.txt
 	$(SCRIPTDIR)/gfx-process.py gentileset $< $(GENOBJDIR)/palette$*.txt $(GENOBJDIR)/tileset$*.txt
 
+# 1b. Generate text Tilemap files from images
+$(GENOBJDIR)/tilemap%.txt: $(LEVELDIR)/%.txt $(TILESRC) $(PALSRC)
+	$(SCRIPTDIR)/gfx-process.py gentilemap $< $(GENOBJDIR) $@
+
 # 2. Compile sprites to 6809 assembly code
 $(GENASMDIR)/sprite%.asm: $(SPRITEDIR)/%.spr $(SCRIPTDIR)/sprite2asm.py
 	$(SCRIPTDIR)/sprite2asm.py $< $@ $(CPU)
@@ -186,7 +190,7 @@ $(DATA_OBJECTS) $(ASM_OBJECTS): $(SCRIPTDIR)/build-objects.py $(SPRITERAW) $(OBJ
 	$(SCRIPTDIR)/build-objects.py $(GENOBJDIR) $(GENLISTDIR) $(GENDISKDIR) $(GENASMDIR)
 
 # 9. Build Level data file and game directory assembler code
-$(DATA_LEVELS) $(ASM_LEVELS): $(SCRIPTDIR)/build-levels.py $(PASS1LIST) $(LEVELRAW) $(LEVELMAP) $(LEVELDSC)
+$(DATA_LEVELS) $(ASM_LEVELS): $(SCRIPTDIR)/build-levels.py $(PASS1LIST) $(LEVELRAW) $(MAPSRC) $(LEVELDSC)
 	$(SCRIPTDIR)/build-levels.py $(LEVELDIR) $(PASS1LIST) $(GENOBJDIR) $(GENLISTDIR) $(GENDISKDIR) $(GENASMDIR)
 
 #10. Build Tileset data file and game directory assembler code

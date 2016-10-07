@@ -32,7 +32,7 @@ import math
 from PIL import Image
 
 #******************************************************************************
-# Helper functions for image building script
+# Helper functions and classes for graphics processing script
 #
 
 def GenerateCocoPalettes(ColorsUsed, ImagePalette):
@@ -243,14 +243,296 @@ def parseTilesetDescription(descFilename):
         sys.exit(2)
     return info
 
+class LevelInfo:
+    def __init__(self):
+        # this LevelInfo class doesn't store everything from the level description file, only those
+        # parameters which are needed for generating the tilemap
+        self.mapfilename = ""
+        self.tilesetidx = -1
+        self.tilemapStart = None
+        self.tilemapSize = None
+        
+def parseLevelDescription(descFilename):
+    f = open(descFilename, "r").read()
+    info = LevelInfo()
+    section = ""
+    for line in f.split("\n"):
+        # remove comments and whitespace from line
+        pivot = line.find("*")
+        if pivot != -1:
+            line = line[:pivot]
+        line = line.strip()
+        if len(line) < 1:
+            continue
+        # handle new sections
+        if len(line) > 2 and line[0] == '[' and line[-1] == ']':
+            section = line[1:-1].lower()
+            continue
+        # the only section we care about is "Level"
+        if section != "level":
+            continue
+        # handle parameters
+        pivot = line.find("=")
+        if pivot != -1:
+            key = line[:pivot].strip().lower()
+            value = line[pivot+1:].strip()
+            if key == "tileset":
+                info.tilesetidx = int(value)
+            elif key == "tilemapimage":
+                info.mapfilename = value
+            elif key == "tilemapstart":
+                info.tilemapStart = [ int(c) for c in value.split(",") ]
+            elif key == "tilemapsize":
+                info.tilemapSize = [ int(c) for c in value.split(",") ]
+            continue
+        # anything else is unexpected
+        print "****Error: invalid line '%s' in level description file '%s'" % (line, descFilename)
+        sys.exit(2)
+    return info
+
+def parsePaletteRGB(paletteFilename):
+    f = open(paletteFilename, "r").read()
+    section = ""
+    matrix = [ ]
+    for line in f.split("\n"):
+        # remove comments and whitespace from line
+        pivot = line.find("*")
+        if pivot != -1:
+            line = line[:pivot]
+        line = line.strip()
+        if len(line) < 1:
+            continue
+        # handle new sections
+        if len(line) > 2 and line[0] == '[' and line[-1] == ']':
+            section = line[1:-1].lower()
+            continue
+        # the only section we care about is the RGB palette
+        if section != "palette-rgb":
+            continue
+        # handle palette values
+        newvalues = [int(v) for v in line.split()]
+        matrix.extend(newvalues)
+    # validate result
+    if len(matrix) != 16:
+        print "****Error: invalid RGB palette values in %s" % paletteFilename
+    return matrix
+
 def PrintUsage():
     print "****Usage: %s <command> [arguments]" % sys.argv[0]
     print "    Commands:"
     print "        mixtiles <input_mapdesc_txt> <output_image_file>"
     print "        gentileset <input_tiledesc_txt> <output_palette_file> <output_tileset_file>"
-    print "        gentilemap <input_leveldesc_txt> <output_tilemap_file>"
+    print "        gentilemap <input_leveldesc_txt> <input_tileset_path> <output_tilemap_file>"
     print "        gensprites <input_spritedesc_txt> <input_palette_file> <output_sprite_file>"
     sys.exit(1)
+
+#******************************************************************************
+# functions for primary commands
+#
+
+def GenerateTileset(tiledesc_fname, palette_fname, tileset_fname):
+    # parse tileset description file
+    info = parseTilesetDescription(tiledesc_fname)
+    # validate tileset parameters
+    if (info.tilesetStart[0] & 15) != 0 or (info.tilesetStart[1] & 15) != 0:
+        print "****Error: tilemap starting coordinates are not divisible by 16!"
+        sys.exit(3)
+    if (info.tilesetSize[0] & 15) != 0 or (info.tilesetSize[1] & 15) != 0:
+        print "****Error: tilemap size not divisible by 16!"
+        sys.exit(3)
+    ImageFilename = os.path.join(os.path.dirname(tiledesc_fname), info.filename)
+    if os.path.exists(ImageFilename) == False:
+        print "****Error: image file '%s' for tileset doesn't exist!" % ImageFilename
+        sys.exit(3)
+    # Build Luv palettes for all of the colors in the Coco's 64-color palette for RGB and Composite modes
+    BuildCocoColors()
+    # create PIL Image object and get the resolution
+    im = Image.open(ImageFilename)
+    width = im.size[0]
+    height = im.size[1]
+    ImgData = im.getdata()
+    # validate image parameters
+    if (width & 15) != 0:
+        print "****Error: width of image '%s' is not divisible by 16." % ImageFilename
+        sys.exit(2)
+    if im.mode != 'P':
+        print "****Error: image '%s' is not a palette (indexed color) image" % ImageFilename
+        sys.exit(3)
+    # make a histogram of the palette entries
+    ColorHist = [ 0 for j in range(256) ]
+    for j in range(width*height):
+        pix = ImgData[j]
+        ColorHist[pix] = ColorHist[pix] + 1
+    # make a new palette which will only contain the colors which are used in this input image
+    NewPalette = []
+    for j in range(256):
+        if ColorHist[j] > 0:
+            NewPalette.append(j)
+    # we cannot make a Coco image out of this if it uses more than 16 colors
+    if len(NewPalette) > 16:
+        print "****Error: image '%s' uses more than 16 colors! (actual=%i)" % (ImageFilename, len(NewPalette))
+        sys.exit(4)
+    # generate palettes and palette mappings for both Composite and RGB mode on Coco
+    (CMPPalette, RGBPalette, ImageToCocoMap) = GenerateCocoPalettes(NewPalette, im.palette.getdata()[1])
+    # write out palette description file
+    f = open(palette_fname, "w")
+    f.write("* The contents of this file were automatically generated with\n* gfx-process.py by processing the tileset description file below.\n* Path: %s\n*\n" % tiledesc_fname)
+    f.write("\n".join(["* " + line for line in info.tiledesc_lines]))
+    f.write("\n")
+    f.write("[Palette-CMP]\n")
+    for i in range(16):
+        if (i & 3) != 3:
+            f.write("%02i " % CMPPalette[i])
+        else:
+            f.write("%02i\n" % CMPPalette[i])
+    f.write("\n")
+    f.write("[Palette-RGB]\n")
+    for i in range(16):
+        if (i & 3) != 3:
+            f.write("%02i " % RGBPalette[i])
+        else:
+            f.write("%02i\n" % RGBPalette[i])
+    f.close()
+    # generate a list of all the unique tiles
+    TileList = [ ]
+    for y0 in range(0,height,16):
+        if y0 < info.tilesetStart[1] or y0 >= info.tilesetStart[1]+info.tilesetSize[1]:
+            continue
+        for x0 in range(0,width,16):
+            if x0 < info.tilesetStart[0] or x0 >= info.tilesetStart[0]+info.tilesetSize[0]:
+                continue;
+            tilePix = [ ]
+            for y in range(y0,y0+16):
+                for x in range(x0,x0+16):
+                    imgPix = ImgData[y*width+x]
+                    tilePix.append(ImageToCocoMap[imgPix])
+            if tilePix not in TileList:
+                TileList.append(tilePix)
+    # write out tileset file
+    f = open(tileset_fname, "w")
+    f.write("* The contents of this file were automatically generated with\n* gfx-process.py by processing the tileset description file below.\n* Path: %s\n*\n" % tiledesc_fname)
+    f.write("\n".join(["* " + line for line in info.tiledesc_lines]))
+    f.write("\n")
+    idx = 0
+    for tilePix in TileList:
+        f.write("* Tile %i\n" % idx)
+        idx += 1
+        for i in range(256):
+            if (i & 15) != 15:
+                f.write("%x " % tilePix[i])
+            else:
+                f.write("%x\n" % tilePix[i])
+        f.write("\n")
+    f.close()
+    # all done!
+    print "Tileset %s generated from image %s, with %i tiles, containing %i unique colors" % (tileset_fname, ImageFilename, idx, len(NewPalette))
+
+def GenerateTilemap(leveldesc_fname, tileset_path, tilemap_fname):
+    # parse tileset description file
+    info = parseLevelDescription(leveldesc_fname)
+    # validate tilemap parameters
+    if info.tilesetidx < 0:
+        print "****Error: missing tileset index in level description file %s" % leveldesc_fname
+        sys.exit(3)
+    if (info.tilemapStart[0] & 15) != 0 or (info.tilemapStart[1] & 15) != 0:
+        print "****Error: tilemap starting coordinates are not divisible by 16!"
+        sys.exit(3)
+    if (info.tilemapSize[0] & 15) != 0 or (info.tilemapSize[1] & 15) != 0:
+        print "****Error: tilemap size not divisible by 16!"
+        sys.exit(3)
+    ImageFilename = os.path.join(os.path.dirname(leveldesc_fname), info.mapfilename)
+    if os.path.exists(ImageFilename) == False:
+        print "****Error: image file '%s' for tilemap doesn't exist!" % ImageFilename
+        sys.exit(3)
+    # find the palette and tileset files
+    tileset_fname = None
+    palette_fname = None
+    filelist = os.listdir(tileset_path)
+    for fname in filelist:
+        if fname[:7] == "palette" and int(fname[7:9]) == info.tilesetidx and fname[-4:] == ".txt":
+            palette_fname = fname
+        elif fname[:7] == "tileset" and int(fname[7:9]) == info.tilesetidx and fname[-4:] == ".txt":
+            tileset_fname = fname
+    if tileset_fname == None:
+        print "****Error: couldn't find tileset %i file in directory %s" % (info.tilesetidx, tileset_path)
+        sys.exit(3)
+    if palette_fname == None:
+        print "****Error: couldn't find palette %i file in directory %s" % (info.tilesetidx, tileset_path)
+        sys.exit(3)
+    # read the RGB palette from the palette file
+    CocoPaletteRGB = parsePaletteRGB(os.path.join(tileset_path, palette_fname))
+    # load tileset
+    f = open(os.path.join(tileset_path, tileset_fname), "r").read()
+    Tileset = [ ]
+    matrix = [ ]
+    for line in f.split("\n"):
+        # remove comments and whitespace from line
+        pivot = line.find("*")
+        if pivot != -1:
+            line = line[:pivot]
+        line = line.strip()
+        if len(line) < 1:
+            continue
+        # handle tile pixel values (hex)
+        pix = "".join(line.split())
+        if (len(pix) & 1) == 1:
+            print "****Error: invalid tile pixel line length (%i) in tileset '%s'" % (len(pix), filename)
+            sys.exit(1)
+        for i in range(0, len(pix)):
+            v = int(pix[i], 16)
+            matrix.append(v)
+        if len(matrix) == 256:
+            Tileset.append(matrix)
+            matrix = [ ]
+    # Build Luv palettes for all of the colors in the Coco's 64-color palette for RGB and Composite modes
+    BuildCocoColors()
+    # load the tilemap image and build a map to convert each color in the tilemap to the closest 4-bit Coco color index
+    # into the RGB palette we just loaded
+    im = Image.open(ImageFilename)
+    width = im.size[0]
+    height = im.size[1]
+    ImgData = im.getdata()
+    PalData = im.getpalette()
+    PalSize = len(PalData) / 3
+    ImageToCocoColor = [ ]
+    for i in range(PalSize):
+        thisRGB = (PalData[i*3], PalData[i*3+1], PalData[i*3+2])
+        thisLuv = ConvertRGBtoLuv(thisRGB[0], thisRGB[1], thisRGB[2])
+        CocoColor = ClosestColorOf16(thisLuv, CocoPaletteRGB, CocoLuvByRGB)
+        ImageToCocoColor.append(CocoColor)
+    # finally, generate a tilemap by looping through the tilemap image, generating a 16x16
+    # tile texture at each position, then finding the index of the texture within the tileset
+    TileMap = [ ]
+    for y0 in range(0,height,16):
+        if y0 < info.tilemapStart[1] or y0 >= info.tilemapStart[1]+info.tilemapSize[1]:
+            continue
+        TileLine = [ ]
+        for x0 in range(0,width,16):
+            if x0 < info.tilemapStart[0] or x0 >= info.tilemapStart[0]+info.tilemapSize[0]:
+                continue;
+            tilePix = [ ]
+            for y in range(y0,y0+16):
+                for x in range(x0,x0+16):
+                    imgPix = ImgData[y*width+x]
+                    tilePix.append(ImageToCocoColor[imgPix])
+            if tilePix not in Tileset:
+                print "****Error: tile at location %i,%i in map file %s is not present in tileset!" % (x0, y0, ImageFilename)
+            tileIdx = Tileset.index(tilePix)
+            TileLine.append(tileIdx)
+        TileMap.append(TileLine)
+    # now write out the tilemap file
+    f = open(tilemap_fname, "w")
+    f.write("* The contents of this file were automatically generated with\n* gfx-process.py by processing the tilemap image file %s\n*\n" % ImageFilename)
+    for tileLine in TileMap:
+        f.write(" ".join(["%02x" % v for v in tileLine]))
+        f.write("\n")
+    f.close()
+    # all done!
+    print "Tilemap %s generated from image %s, with size %ix%i" % (tilemap_fname, ImageFilename, len(TileMap[0]), len(TileMap))
+
+
+def GenerateSprites(spritedesc_fname, palette_fname, sprite_fname):
+    pass
 
 #******************************************************************************
 # main function for standard script execution
@@ -281,107 +563,23 @@ if __name__ == "__main__":
         tiledesc_fname = sys.argv[2]
         palette_fname = sys.argv[3]
         tileset_fname = sys.argv[4]
-        # parse tileset description file
-        info = parseTilesetDescription(tiledesc_fname)
-        # validate tileset parameters
-        if (info.tilesetStart[0] & 15) != 0 or (info.tilesetStart[1] & 15) != 0:
-            print "****Error: tilemap starting coordinates are not divisible by 16!"
-            sys.exit(3)
-        if (info.tilesetSize[0] & 15) != 0 or (info.tilesetSize[1] & 15) != 0:
-            print "****Error: tilemap size not divisible by 16!"
-            sys.exit(3)
-        ImageFilename = os.path.join(os.path.dirname(tiledesc_fname), info.filename)
-        if os.path.exists(ImageFilename) == False:
-            print "****Error: image file '%s' for tileset doesn't exist!" % ImageFilename
-            sys.exit(3)
-        # Build Luv palettes for all of the colors in the Coco's 64-color palette for RGB and Composite modes
-        BuildCocoColors()
-        # create PIL Image object and get the resolution
-        im = Image.open(ImageFilename)
-        width = im.size[0]
-        height = im.size[1]
-        ImgData = im.getdata()
-        # validate image parameters
-        if (width & 15) != 0:
-            print "****Error: width of image '%s' is not divisible by 16." % ImageFilename
-            sys.exit(2)
-        if im.mode != 'P':
-            print "****Error: image '%s' is not a palette (indexed color) image" % ImageFilename
-            sys.exit(3)
-        # make a histogram of the palette entries
-        ColorHist = [ 0 for j in range(256) ]
-        for j in range(width*height):
-            pix = ImgData[j]
-            ColorHist[pix] = ColorHist[pix] + 1
-        # make a new palette which will only contain the colors which are used in this input image
-        NewPalette = []
-        for j in range(256):
-            if ColorHist[j] > 0:
-                NewPalette.append(j)
-        # we cannot make a Coco image out of this if it uses more than 16 colors
-        if len(NewPalette) > 16:
-            print "****Error: image '%s' uses more than 16 colors! (actual=%i)" % (ImageFilename, len(NewPalette))
-            sys.exit(4)
-        # generate palettes and palette mappings for both Composite and RGB mode on Coco
-        (CMPPalette, RGBPalette, ImageToCocoMap) = GenerateCocoPalettes(NewPalette, im.palette.getdata()[1])
-        # write out palette description file
-        f = open(palette_fname, "w")
-        f.write("* The contents of this file were automatically generated with\n* gfx-process.py by processing the tileset description file below.\n* Path: %s\n*\n" % tiledesc_fname)
-        f.write("\n".join(["* " + line for line in info.tiledesc_lines]))
-        f.write("\n")
-        f.write("[Palette-CMP]\n")
-        for i in range(16):
-            if (i & 3) != 3:
-                f.write("%02i " % CMPPalette[i])
-            else:
-                f.write("%02i\n" % CMPPalette[i])
-        f.write("\n")
-        f.write("[Palette-RGB]\n")
-        for i in range(16):
-            if (i & 3) != 3:
-                f.write("%02i " % RGBPalette[i])
-            else:
-                f.write("%02i\n" % RGBPalette[i])
-        f.close()
-        # generate a list of all the unique tiles
-        TileList = [ ]
-        for y0 in range(0,height,16):
-            if y0 < info.tilesetStart[1] or y0 >= info.tilesetStart[1]+info.tilesetSize[1]:
-                continue
-            for x0 in range(0,width,16):
-                if x0 < info.tilesetStart[0] or x0 >= info.tilesetStart[0]+info.tilesetSize[0]:
-                    continue;
-                tilePix = [ ]
-                for y in range(y0,y0+16):
-                    for x in range(x0,x0+16):
-                        imgPix = ImgData[y*width+x]
-                        tilePix.append(ImageToCocoMap[imgPix])
-                if tilePix not in TileList:
-                    TileList.append(tilePix)
-        # write out tilemap file
-        f = open(tileset_fname, "w")
-        f.write("* The contents of this file were automatically generated with\n* gfx-process.py by processing the tileset description file below.\n* Path: %s\n*\n" % tiledesc_fname)
-        f.write("\n".join(["* " + line for line in info.tiledesc_lines]))
-        f.write("\n")
-        idx = 0
-        for tilePix in TileList:
-            f.write("* Tile %i\n" % idx)
-            idx += 1
-            for i in range(256):
-                if (i & 15) != 15:
-                    f.write("%x " % tilePix[i])
-                else:
-                    f.write("%x\n" % tilePix[i])
-            f.write("\n")
-        f.close()
-        # all done!
-        print "Tileset %s generated from image %s, with %i tiles, containing %i unique colors" % (tileset_fname, ImageFilename, idx, len(NewPalette))
+        GenerateTileset(tiledesc_fname, palette_fname, tileset_fname)
     elif modeIdx == 2:
         # gentilemap
-        print "Error: gentilemap not yet supported!"
-        sys.exit(2)
+        if len(sys.argv) != 5:
+            print "****Error: wrong number of arguments!"
+            PrintUsage()
+        leveldesc_fname = sys.argv[2]
+        tileset_path = sys.argv[3]
+        tilemap_fname = sys.argv[4]
+        GenerateTilemap(leveldesc_fname, tileset_path, tilemap_fname)
     else:
         # gensprites
         print "Error: gensprites not yet supported!"
         sys.exit(2)
+        spritedesc_fname = sys.argv[2]
+        palette_fname = sys.argv[3]
+        sprite_fname = sys.argv[4]
+        GenerateSprites(spritedesc_fname, palette_fname, sprite_fname)
+
 

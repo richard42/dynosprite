@@ -87,6 +87,8 @@ class Level:
         self.NumInitObjects = 0
         self.cc3Data = ""               # output
         self.tilemap = ""
+        self.tilemapwidth = 0
+        self.tilemapheight = 0
 
     def validateCode(self, listFile):
         if not self.Symbols.has_key("Level_Initialize"):
@@ -97,13 +99,15 @@ class Level:
             sys.exit(1)
 
     def validateParameters(self, descFile):
-        paramList = [ "name", "description", "objectgroups", "maxobjecttablesize", "tileset", "tilemapwidth", "tilemapheight", "bkgrndstartx", "bkgrndstarty" ]
+        paramList = [ "name", "description", "objectgroups", "maxobjecttablesize", "tileset", "tilemapsize", "bkgrndstartx", "bkgrndstarty" ]
         for paramName in paramList:
             if not self.ParamDict.has_key(paramName):
-                print "****Error: Missing '%s' parameter in level file '%s'" % (paramName, listFile)
+                print "****Error: Missing '%s' parameter in level file '%s'" % (paramName, descFile)
                 sys.exit(1)
         # parse the ObjectGroups parameter to make a list
-        self.ObjectGroups = [int(s.strip()) for s in lvl.ParamDict["objectgroups"].split(",")]
+        self.ObjectGroups = [int(s.strip()) for s in self.ParamDict["objectgroups"].split(",")]
+        # set the width and height from tilemapsize
+        self.tilemapwidth, self.tilemapheight = (int(v.strip())/16 for v in self.ParamDict["tilemapsize"].split(","))
 
     def parseDescription(self, descFilename, dynosymbols):
         f = open(descFilename, "r").read()
@@ -181,7 +185,7 @@ class Level:
                 self.tilemap += chr(v)
             continue
         # validate tilemap length
-        if len(self.tilemap) != int(self.ParamDict["tilemapwidth"]) * int(self.ParamDict["tilemapheight"]):
+        if len(self.tilemap) != lvl.tilemapwidth * lvl.tilemapheight:
             print "****Error: tilemap length (%i) in file '%s' doesn't match width and height given in level descriptor file" % (len(self.tilemap), mapFilename)
             sys.exit(1)
 
@@ -248,19 +252,19 @@ if __name__ == "__main__":
     # make lists of level files (description, raw/list from asm source, tilemap) found
     filelist = os.listdir(leveldir)
     lvlDescFiles = [name for name in filelist if len(name) >= 6 and name[:2].isdigit() and name[-4:].lower() == ".txt"]
-    lvlDescFiles.sort()                                       
-    lvlMapFiles = [name for name in filelist if len(name) >= 6 and name[:2].isdigit() and name[-4:].lower() == ".map"]
-    lvlMapFiles.sort()
+    lvlDescFiles.sort()
     rawlist = os.listdir(rawdir)
     listlist = os.listdir(listdir)
     lvlRawFiles = [name for name in rawlist if len(name) >= 11 and name[:5] == "level" and name[5:7].isdigit() and name[-4:].lower() == ".raw"]
     lvlRawFiles.sort()                                        
     lvlListFiles = [name for name in listlist if len(name) >= 11 and name[:5] == "level" and name[5:7].isdigit() and name[-4:].lower() == ".lst"]
     lvlListFiles.sort()                                        
+    lvlMapFiles = [name for name in rawlist if len(name) >= 13 and name[:7] == "tilemap" and name[7:9].isdigit() and name[-4:].lower() == ".txt"]
+    lvlMapFiles.sort()
     # make sure we have same # of files in each list
     numLevels = len(lvlDescFiles)
     if len(lvlMapFiles) != numLevels or len(lvlRawFiles) != numLevels or len(lvlListFiles) != numLevels:
-        print "****Error: Mismatched level description/assembly/map files in '%s' and/or '%s' with number %i" % (leveldir, rawdir, lvlNum)
+        print "****Error: Mismatched level description/assembly/map files in '%s' and/or '%s'" % (leveldir, rawdir)
         sys.exit(1)
     print "    Found %i levels" % numLevels
     # get symbol locations for DynoSprite engine
@@ -269,7 +273,7 @@ if __name__ == "__main__":
     allLevels = [ ]
     for i in range(numLevels):
         lvlNum = int(lvlDescFiles[i][:2])
-        if int(lvlMapFiles[i][:2]) != lvlNum or int(lvlRawFiles[i][5:7]) != lvlNum or int(lvlListFiles[i][5:7]) != lvlNum:
+        if int(lvlMapFiles[i][7:9]) != lvlNum or int(lvlRawFiles[i][5:7]) != lvlNum or int(lvlListFiles[i][5:7]) != lvlNum:
             print "****Error: mis-matched level description/assembly/map files in '%s' and/or '%s' with number %i" % (leveldir, rawdir, lvlNum)
             sys.exit(1)
         lvl = Level(lvlNum)
@@ -280,7 +284,7 @@ if __name__ == "__main__":
         lvl.validateCode(lvlListFiles[i])
         lvl.parseDescription(os.path.join(leveldir, lvlDescFiles[i]), dynosymbols)
         lvl.validateParameters(lvlDescFiles[i])
-        lvl.parseMap(os.path.join(leveldir, lvlMapFiles[i]))
+        lvl.parseMap(os.path.join(rawdir, lvlMapFiles[i]))
         comp = Compressor(lvl.tilemap)
         lvl.CompMap = comp.Deflate(bPrintInfo=False, bUseGzip=True)
         lvl.generateData()
@@ -315,9 +319,9 @@ if __name__ == "__main__":
         f.write((" " * 24) + "fcb     " + s + (" " * (16-len(s))) + "* number of objects to initialize from Init Stream\n")
         s = str(int(lvl.ParamDict["tileset"]))
         f.write((" " * 24) + "fcb     " + s + (" " * (16-len(s))) + "* tileset number to load\n")
-        s = str(int(lvl.ParamDict["tilemapwidth"]))
+        s = str(lvl.tilemapwidth)
         f.write((" " * 24) + "fdb     " + s + (" " * (16-len(s))) + "* width of background tilemap\n")
-        s = str(int(lvl.ParamDict["tilemapheight"]))
+        s = str(lvl.tilemapheight)
         f.write((" " * 24) + "fdb     " + s + (" " * (16-len(s))) + "* height of background tilemap\n")
         s = str(int(lvl.ParamDict["bkgrndstartx"]))
         f.write((" " * 24) + "fdb     " + s + (" " * (16-len(s))) + "* background tilemap starting position X\n")
