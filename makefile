@@ -141,6 +141,7 @@ targets:
 	@echo "  Debugging Options:"
 	@echo "    MAMEDBG=1     == run MAME with debugger window (for 'test' target)"
 
+# this special target is used to prevent gnu make from deleting the intermediate sprite .txt and .asm files
 SECONDARY: $(SPRITESRC) $(SPRITEASMSRC)
 
 all: $(TARGET)
