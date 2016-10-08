@@ -22,7 +22,7 @@ GENDISKDIR = $(BUILDDIR)/disk
 # lists of source game assets
 TILEDESC = $(wildcard $(TILEDIR)/??-*.txt)
 LEVELSRC = $(wildcard $(LEVELDIR)/??-*.asm)
-SPRITESRC = $(wildcard $(SPRITEDIR)/??-*.spr)
+SPRITEDSC = $(wildcard $(SPRITEDIR)/??-*.txt)
 OBJECTSRC = $(wildcard $(OBJECTDIR)/??-*.asm)
 SOUNDSRC = $(wildcard $(SOUNDDIR)/??-*.wav)
 IMAGESRC = $(wildcard $(IMAGEDIR)/??-*.png)
@@ -32,14 +32,15 @@ LEVELDSC = $(wildcard $(LEVELDIR)/??-*.txt)
 # lists of build products based on game assets
 TILESRC = $(patsubst $(TILEDIR)/%.txt, $(GENGFXDIR)/tileset%.txt, $(TILEDESC))
 PALSRC = $(patsubst $(TILEDIR)/%.txt, $(GENGFXDIR)/palette%.txt, $(TILEDESC))
-SPRITERAW := $(patsubst $(SPRITEDIR)/%.spr, $(GENOBJDIR)/sprite%.raw, $(SPRITESRC))
+SPRITESRC = $(patsubst $(SPRITEDIR)/%.txt, $(GENGFXDIR)/sprite%.txt, $(SPRITEDSC))
+SPRITERAW := $(patsubst $(SPRITEDIR)/%.txt, $(GENOBJDIR)/sprite%.raw, $(SPRITEDSC))
 OBJECTRAW := $(patsubst $(OBJECTDIR)/%.asm, $(GENOBJDIR)/object%.raw, $(OBJECTSRC))
 SOUNDRAW := $(patsubst $(SOUNDDIR)/%.wav, $(GENOBJDIR)/sound%.raw, $(SOUNDSRC))
 LEVELRAW := $(patsubst $(LEVELDIR)/%.asm, $(GENOBJDIR)/level%.raw, $(LEVELSRC))
 MAPSRC := $(patsubst $(LEVELDIR)/%.txt, $(GENGFXDIR)/tilemap%.txt, $(LEVELDSC))
 
 # output ASM files generated from sprites
-SPRITEASMSRC := $(patsubst $(SPRITEDIR)/%.spr, $(GENASMDIR)/sprite%.asm, $(filter %.spr, $(SPRITESRC)))
+SPRITEASMSRC := $(patsubst $(SPRITEDIR)/%.txt, $(GENASMDIR)/sprite%.asm, $(filter %.txt, $(SPRITEDSC)))
 
 # paths to dependencies
 COCODISKGEN = $(TOOLDIR)/file2dsk
@@ -140,6 +141,7 @@ targets:
 	@echo "  Debugging Options:"
 	@echo "    MAMEDBG=1     == run MAME with debugger window (for 'test' target)"
 
+SECONDARY: $(SPRITESRC) $(SPRITEASMSRC)
 
 all: $(TARGET)
 
@@ -156,15 +158,19 @@ $(COCODISKGEN): $(TOOLDIR)/src/file2dsk/main.c
 	gcc -o $@ $<
 
 # 1a. Generate text Palette and Tileset files from images
-$(GENGFXDIR)/tileset%.txt $(GENGFXDIR)/palette%.txt: $(TILEDIR)/%.txt
+$(GENGFXDIR)/tileset%.txt $(GENGFXDIR)/palette%.txt: $(TILEDIR)/%.txt $(SCRIPTDIR)/gfx-process.py
 	$(SCRIPTDIR)/gfx-process.py gentileset $< $(GENGFXDIR)/palette$*.txt $(GENGFXDIR)/tileset$*.txt
 
 # 1b. Generate text Tilemap files from images
-$(GENGFXDIR)/tilemap%.txt: $(LEVELDIR)/%.txt $(TILESRC) $(PALSRC)
+$(GENGFXDIR)/tilemap%.txt: $(LEVELDIR)/%.txt $(TILESRC) $(PALSRC) $(SCRIPTDIR)/gfx-process.py
 	$(SCRIPTDIR)/gfx-process.py gentilemap $< $(GENGFXDIR) $@
 
+# 1c. Generate Sprite files from images
+$(GENGFXDIR)/sprite%.txt: $(SPRITEDIR)/%.txt $(PALSRC) $(SCRIPTDIR)/gfx-process.py
+	$(SCRIPTDIR)/gfx-process.py gensprites $< $(GENGFXDIR) $@
+
 # 2. Compile sprites to 6809 assembly code
-$(GENASMDIR)/sprite%.asm: $(SPRITEDIR)/%.spr $(SCRIPTDIR)/sprite2asm.py
+$(GENASMDIR)/sprite%.asm: $(GENGFXDIR)/sprite%.txt $(SCRIPTDIR)/sprite2asm.py
 	$(SCRIPTDIR)/sprite2asm.py $< $@ $(CPU)
 
 # 3. Assemble sprites to raw machine code

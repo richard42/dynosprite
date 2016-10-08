@@ -29,6 +29,7 @@
 import os
 import sys
 import math
+import numpy
 from PIL import Image
 
 #******************************************************************************
@@ -317,13 +318,167 @@ def parsePaletteRGB(paletteFilename):
         print "****Error: invalid RGB palette values in %s" % paletteFilename
     return matrix
 
+class SpriteInfo:
+    def __init__(self):
+        self.name = ""
+        self.location = [0, 0]
+        self.singlepixelpos = False
+        self.pixArray = [ ]
+        self.hotspot = [0, 0]
+
+class SpriteGroupInfo:
+    def __init__(self):
+        self.imagefilename = ""
+        self.groupidx = -1
+        self.paletteidx = -1
+        self.transparentRGB = [0,0,0]
+        self.sprites = [ ]
+        
+def parseSpriteDescription(descFilename):
+    f = open(descFilename, "r").read()
+    info = SpriteGroupInfo()
+    curSprite = SpriteInfo()
+    section = None
+    for line in f.split("\n"):
+        # remove comments and whitespace from line
+        pivot = line.find("*")
+        if pivot != -1:
+            line = line[:pivot]
+        line = line.strip()
+        if len(line) < 1:
+            continue
+        # handle new sections
+        if len(line) > 2 and line[0] == '[' and line[-1] == ']':
+            # save sprite currently being defined
+            if section != None:
+                info.sprites.append(curSprite)
+                curSprite = SpriteInfo()
+            # set new section name
+            section = line[1:-1].lower()
+            curSprite.name = section
+            continue
+        # handle parameters
+        pivot = line.find("=")
+        if pivot != -1:
+            key = line[:pivot].strip().lower()
+            value = line[pivot+1:].strip()
+            # global parameters
+            if section == None:
+                if key == "group":
+                    info.groupidx = int(value)
+                elif key == "image":
+                    info.imagefilename = value
+                elif key == "transparent":
+                    info.transparentRGB = [int(v.strip()) for v in value.split(",")]
+                elif key == "palette":
+                    info.paletteidx = int(value)
+                else:
+                    print "****Error: invalid global parameter definition '%s' in sprite description file '%s'" % (line, descFilename)
+                    sys.exit(2)
+                continue
+            # sprite parameters
+            if key == "location":
+                curSprite.location = [int(v.strip()) for v in value.split(",")]
+            elif key == "singlepixelposition":
+                if value.lower() == "true":
+                    curSprite.singlepixelpos = True
+                elif value.lower() == "false":
+                    curSprite.singlepixelpos = False
+                else:
+                    print "****Error: invalid boolean value for SinglePixelPosition parameter in line '%s' in sprite description file '%s'" % (line, descFilename)
+                    sys.exit(2)
+            else:
+                print "****Error: invalid sprite parameter definition '%s' in sprite description file '%s'" % (line, descFilename)
+                sys.exit(2)
+            continue
+        # anything else is unexpected
+        print "****Error: invalid line '%s' in sprite description file '%s'" % (line, descFilename)
+        sys.exit(2)
+    # save sprite currently being defined
+    info.sprites.append(curSprite)
+    return info
+
+def RecursivePaint(ImgData, Width, Height, x, y, transparentIdx, pixCoordColorList):
+    # return if coordinates are output image boundary
+    if x < 0 or y < 0 or x >= Width or y >= Height:
+        return
+    # return if pixel at current coordinate is transparent
+    pixColor = ImgData[y][x]
+    if pixColor == transparentIdx:
+        return
+    # we have a non-transparent pixel, so record the color and coordinate
+    pixCoordColorList.append((x, y, pixColor))
+    # then make this pixel transparent to avoid processing it again
+    ImgData[y][x] = transparentIdx
+    # and then search all around it, in the 8-neighborhood
+    RecursivePaint(ImgData, Width, Height, x-1, y-1, transparentIdx, pixCoordColorList)
+    RecursivePaint(ImgData, Width, Height,   x, y-1, transparentIdx, pixCoordColorList)
+    RecursivePaint(ImgData, Width, Height, x+1, y-1, transparentIdx, pixCoordColorList)
+    RecursivePaint(ImgData, Width, Height, x+1, y,   transparentIdx, pixCoordColorList)
+    RecursivePaint(ImgData, Width, Height, x+1, y+1, transparentIdx, pixCoordColorList)
+    RecursivePaint(ImgData, Width, Height,   x, y+1, transparentIdx, pixCoordColorList)
+    RecursivePaint(ImgData, Width, Height, x-1, y+1, transparentIdx, pixCoordColorList)
+    RecursivePaint(ImgData, Width, Height, x-1, y,   transparentIdx, pixCoordColorList)
+
+def FindSpritePixels(sprite, ImgData, Width, Height, ImageToCocoColor, transparentIdx):
+    # start by searching around the starting point in a spiral pattern until we find a non-transparent pixel
+    # direction is up, right, down, left
+    x = sprite.location[0]
+    y = sprite.location[1]
+    dir = 0
+    totalSteps = 1
+    curSteps = 0
+    while totalSteps < 20:
+        # test for opaque pixel
+        if x >= 0 and y >= 0 and x < Width and y < Height and ImgData[y][x] != transparentIdx:
+            break
+        # take a step
+        if dir == 0:
+            y -= 1
+        elif dir == 1:
+            x += 1
+        elif dir == 2:
+            y += 1
+        elif dir == 3:
+            x -= 1
+        # advance state
+        curSteps += 1
+        if curSteps == totalSteps:
+            curSteps = 0
+            dir = (dir + 1) % 4
+            if dir == 0 or dir == 2:
+                totalSteps += 1
+    if totalSteps >= 20:
+        print "****Error: sprite %s not found within 10 pixels of location %i,%i" % (sprite.name, sprite.location[0], sprite.location[1])
+        sys.exit(2)
+    # now we apply a recursive painting algoritm to produce a list of all of the touching non-transparent pixels
+    pixCoordColorList = [ ]
+    RecursivePaint(ImgData, Width, Height, x, y, transparentIdx, pixCoordColorList)
+    # get lists of all X coordinates and Y coordinates, then calculate width and height of sprite matrix
+    Xcoords = [ v[0] for v in pixCoordColorList ]
+    Ycoords = [ v[1] for v in pixCoordColorList ]
+    minX = min(Xcoords)
+    minY = min(Ycoords)
+    matrixWidth = max(Xcoords) - minX + 1
+    matrixHeight = max(Ycoords) - minY + 1
+    # generate the matrix
+    pixMatrix = [ [ -1 ] * matrixWidth for y in range(matrixHeight) ]
+    for coordColor in pixCoordColorList:
+        x = coordColor[0] - minX
+        y = coordColor[1] - minY
+        color = ImageToCocoColor[coordColor[2]]
+        pixMatrix[y][x] = color
+    # set the matrix and the hotspot in the sprite info struct and we're done!
+    sprite.pixArray = pixMatrix
+    sprite.hotspot = [sprite.location[0] - minX, sprite.location[1] - minY]
+
 def PrintUsage():
     print "****Usage: %s <command> [arguments]" % sys.argv[0]
     print "    Commands:"
     print "        mixtiles <input_mapdesc_txt> <output_image_file>"
     print "        gentileset <input_tiledesc_txt> <output_palette_file> <output_tileset_file>"
     print "        gentilemap <input_leveldesc_txt> <input_tileset_path> <output_tilemap_file>"
-    print "        gensprites <input_spritedesc_txt> <input_palette_file> <output_sprite_file>"
+    print "        gensprites <input_spritedesc_txt> <input_palette_path> <output_sprite_file>"
     sys.exit(1)
 
 #******************************************************************************
@@ -531,8 +686,85 @@ def GenerateTilemap(leveldesc_fname, tileset_path, tilemap_fname):
     print "Tilemap %s generated from image %s, with size %ix%i" % (tilemap_fname, ImageFilename, len(TileMap[0]), len(TileMap))
 
 
-def GenerateSprites(spritedesc_fname, palette_fname, sprite_fname):
-    pass
+def GenerateSprites(spritedesc_fname, palette_path, sprite_fname):
+    # parse sprite description file
+    info = parseSpriteDescription(spritedesc_fname)
+    # validate sprite parameters
+    if info.groupidx < 0:
+        print "****Error: missing group number in sprite description file %s" % spritedesc_fname
+        sys.exit(3)
+    if info.paletteidx < 0:
+        print "****Error: missing palette number in sprite description file %s" % spritedesc_fname
+        sys.exit(3)
+    if info.imagefilename == "":
+        print "****Error: missing image filename in sprite description file %s" % spritedesc_fname
+        sys.exit(3)
+    for i in range(len(info.sprites)):
+        sprite = info.sprites[i]
+        if sprite.name == "":
+            print "****Error: missing sprite #%i name in sprite description file %s" % (i+1, spritedesc_fname)
+            sys.exit(3)
+    ImageFilename = os.path.join(os.path.dirname(spritedesc_fname), info.imagefilename)
+    if os.path.exists(ImageFilename) == False:
+        print "****Error: image file '%s' for sprite group doesn't exist!" % ImageFilename
+        sys.exit(3)
+    # find the palette file
+    palette_fname = None
+    filelist = os.listdir(palette_path)
+    for fname in filelist:
+        if fname[:7] == "palette" and int(fname[7:9]) == info.paletteidx and fname[-4:] == ".txt":
+            palette_fname = fname
+    if palette_fname == None:
+        print "****Error: couldn't find palette %i file in directory %s" % (info.paletteidx, palette_path)
+        sys.exit(3)
+    # read the RGB palette from the palette file
+    CocoPaletteRGB = parsePaletteRGB(os.path.join(palette_path, palette_fname))
+    # Build Luv palettes for all of the colors in the Coco's 64-color palette for RGB and Composite modes
+    BuildCocoColors()
+    # load the spritesheet image and build a map to convert each color in the tilemap to the closest 4-bit Coco color index
+    # into the RGB palette we just loaded
+    im = Image.open(ImageFilename)
+    width = im.size[0]
+    height = im.size[1]
+    ImgData = numpy.array(im)
+    PalData = im.getpalette()
+    PalSize = len(PalData) / 3
+    ImageToCocoColor = [ ]
+    for i in range(PalSize):
+        thisRGB = (PalData[i*3], PalData[i*3+1], PalData[i*3+2])
+        thisLuv = ConvertRGBtoLuv(thisRGB[0], thisRGB[1], thisRGB[2])
+        CocoColor = ClosestColorOf16(thisLuv, CocoPaletteRGB, CocoLuvByRGB)
+        ImageToCocoColor.append(CocoColor)
+    # figure out which color index in the sprite image is considered to be transparent
+    transparentIdx = None
+    for i in range(PalSize):
+        if PalData[i*3] == info.transparentRGB[0] and PalData[i*3+1] == info.transparentRGB[1] and PalData[i*3+2] == info.transparentRGB[2]:
+            transparentIdx = i
+            break
+    if transparentIdx == None:
+        print "****Error: transparent RGB color %s not found in sprite image %s" % (str(info.transparentRGB), ImageFilename)
+        sys.exit(3)
+    # find and read pixel data, generating a pixel array, for each sprite in the group
+    for sprite in info.sprites:
+        FindSpritePixels(sprite, ImgData, width, height, ImageToCocoColor, transparentIdx)
+    # write out sprite text file
+    pixValMap = { -1:"-", 0:"0", 1:"1", 2:"2", 3:"3", 4:"4", 5:"5", 6:"6", 7:"7", 8:"8", 9:"9", 10:"A", 11:"B", 12:"C", 13:"D", 14:"E", 15:"F" }
+    f = open(sprite_fname, "w")
+    f.write("* The contents of this file were automatically generated with\n* gfx-process.py by processing the sprite image file %s\n*\n" % ImageFilename)
+    f.write("group = %i\n" % info.groupidx)
+    for sprite in info.sprites:
+        f.write("[%s]\n" % sprite.name)
+        f.write("Width = %i\n" % len(sprite.pixArray[0]))
+        f.write("Height = %i\n" % len(sprite.pixArray))
+        f.write("SinglePixelPosition = %s\n" % str(sprite.singlepixelpos))
+        f.write("* Hotspot = (%i,%i)\n" % (sprite.hotspot[0], sprite.hotspot[1]))
+        for pixLine in sprite.pixArray:
+            f.write(" ".join([pixValMap[v] for v in pixLine]))
+            f.write("\n")
+        f.write("\n")
+    f.close()
+    # all done!
+    print "Sprite file %s generated from image %s, containing %i sprites" % (sprite_fname, ImageFilename, len(info.sprites))
 
 #******************************************************************************
 # main function for standard script execution
@@ -575,11 +807,9 @@ if __name__ == "__main__":
         GenerateTilemap(leveldesc_fname, tileset_path, tilemap_fname)
     else:
         # gensprites
-        print "Error: gensprites not yet supported!"
-        sys.exit(2)
         spritedesc_fname = sys.argv[2]
-        palette_fname = sys.argv[3]
+        palette_path = sys.argv[3]
         sprite_fname = sys.argv[4]
-        GenerateSprites(spritedesc_fname, palette_fname, sprite_fname)
+        GenerateSprites(spritedesc_fname, palette_path, sprite_fname)
 
 

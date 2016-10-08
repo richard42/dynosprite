@@ -288,7 +288,6 @@ class Sprite:
         self.name = name
         self.width = 0
         self.height = 0
-        self.idxTransparent = -1
         self.hasSinglePixelPos = False
         self.hasRowPointerArray = False
         self.matrix = []
@@ -311,8 +310,6 @@ class Sprite:
                 self.width = int(value)
             elif key == "height":
                 self.height = int(value)
-            elif key == "transparent":
-                self.idxTransparent = int(value)
             elif key == "singlepixelposition":
                 self.hasSinglePixelPos = (value.lower() == "true")
             elif key == "rowpointerarray":
@@ -322,7 +319,7 @@ class Sprite:
         else:
             rowpix = line.split()
             if len(rowpix) == self.width:
-                self.matrix.append([int(val) for val in rowpix])
+                self.matrix.append([-1 if val == "-" else int(val,16) for val in rowpix])
             else:
                 print "illegal line in Sprite '%s' definition: %s" % (self.name, line)
 
@@ -343,7 +340,7 @@ class Sprite:
             stripList = []
             stripStart = None
             for x in range(self.width):
-                isTransparent = (self.matrix[y][x] == self.idxTransparent)
+                isTransparent = (self.matrix[y][x] == -1)
                 if not isTransparent:
                     self.numPixels += 1
                 if not isTransparent and stripStart == None:
@@ -408,7 +405,7 @@ class Sprite:
             # generate a list of all the byte offsets which must be stored
             byteList = []
             for x in range(self.width):
-                if self.matrix[y][x] == self.idxTransparent:
+                if self.matrix[y][x] == -1:
                     continue
                 byteOffL = (x - self.originX) >> 1
                 byteOffR = (x - self.originX + 1) >> 1
@@ -556,7 +553,7 @@ class Sprite:
             # generate a list of all the byte offsets which must be stored (same as in Erase function)
             byteStoreList = []
             for x in range(self.width):
-                if self.matrix[y][x] == self.idxTransparent:
+                if self.matrix[y][x] == -1:
                     continue
                 byteOffL = (x - self.originX) >> 1
                 byteOffR = (x - self.originX + 1) >> 1
@@ -578,11 +575,11 @@ class Sprite:
                 nibToWrite = 0
                 valToWrite = 0
                 maskToWrite = 0xff
-                if pixNibL >= 0 and pixNibL < self.width and self.matrix[y][pixNibL] != self.idxTransparent:
+                if pixNibL >= 0 and pixNibL < self.width and self.matrix[y][pixNibL] != -1:
                     nibToWrite += 1
                     valToWrite = (self.matrix[y][pixNibL] << 4)
                     maskToWrite = (maskToWrite & 0x0f)
-                if pixNibR >= 0 and pixNibR < self.width and self.matrix[y][pixNibR] != self.idxTransparent:
+                if pixNibR >= 0 and pixNibR < self.width and self.matrix[y][pixNibR] != -1:
                     nibToWrite += 1
                     valToWrite += self.matrix[y][pixNibR]
                     maskToWrite = (maskToWrite & 0xf0)
@@ -1538,8 +1535,12 @@ class App:
         curSprite = None
         spritetext = open(self.spriteFilename, "r").read()
         for line in spritetext.split("\n"):
+            # remove comments and whitespace from line
+            pivot = line.find("*")
+            if pivot != -1:
+                line = line[:pivot]
             line = line.strip()
-            if len(line) == 0:
+            if len(line) < 1:
                 continue
             if line[0] == '[' and line[-1] == ']':
                 # new sprite definiton

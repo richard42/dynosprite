@@ -1,0 +1,45 @@
+Group = 2
+Image = marbles.png
+Transparent=128,128,128
+Palette = 0
+
+[Whole]
+Location=14,16
+SinglePixelPosition=True
+
+[Outline]
+Location=34,16
+SinglePixelPosition=True
+
+[Cycle_1]
+Location=54,16
+SinglePixelPosition=True
+
+[Cycle_2]
+Location=54,39
+SinglePixelPosition=True
+
+[Cycle_3]
+Location=54,62
+SinglePixelPosition=True
+
+[Cycle_4]
+Location=54,85
+SinglePixelPosition=True
+
+[Rain_1]
+Location=74,16
+SinglePixelPosition=True
+
+[Rain_2]
+Location=74,39
+SinglePixelPosition=True
+
+[Rain_3]
+Location=74,62
+SinglePixelPosition=True
+
+[Rain_4]
+Location=74,85
+SinglePixelPosition=True
+
