@@ -2,6 +2,7 @@ cfg
 build
 *.dsk
 *.DSK
+game-*
 scripts/compression.pyc
 tools/file2dsk
 tools/lwasm

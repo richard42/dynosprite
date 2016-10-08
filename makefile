@@ -3,7 +3,7 @@
 
 # paths
 SRCDIR = ./engine
-GAMEDIR = ./game
+GAMEDIR ?= ./game
 SCRIPTDIR = ./scripts
 BUILDDIR = ./build
 TOOLDIR = ./tools
