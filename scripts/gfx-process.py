@@ -38,29 +38,11 @@ from PIL import Image
 
 def GenerateCocoPalettes(ColorsUsed, ImagePalette):
     global CocoLuvByRGB, CocoLuvByCMP
-    # copy the image palette to a Python object and add 2 extra colors at the end (black and white)
+    # copy the image palette to a Python object
     PalSize = len(ImagePalette) / 3
     Palette444 = [ ord(ImagePalette[i]) for i in range(PalSize*3) ]
-    Palette444.append(0)
-    Palette444.append(0)
-    Palette444.append(0)
-    Palette444.append(255)
-    Palette444.append(255)
-    Palette444.append(255)
-    # add black and white to the image palette if they weren't already there
-    bHasBlack = False
-    bHasWhite = False
-    for idx in ColorsUsed:
-        rgbsum = Palette444[idx*3+0] + Palette444[idx*3+1] + Palette444[idx*3+2]
-        if rgbsum == 0:
-            bHasBlack = True
-        if rgbsum == 255*3:
-            bHasWhite = True
-    if len(ColorsUsed) < 16 and bHasBlack == False:
-        ColorsUsed.append(PalSize)
-    if len(ColorsUsed) < 16 and bHasWhite == False:
-        ColorsUsed.append(PalSize+1)
     # convert colors used in our input image into Luv
+    NumColorsUsed = len(ColorsUsed)
     PaletteLuv = []
     for idx in ColorsUsed:
         PaletteLuv.append(ConvertRGBtoLuv(Palette444[idx*3+0], Palette444[idx*3+1], Palette444[idx*3+2]))
@@ -68,7 +50,7 @@ def GenerateCocoPalettes(ColorsUsed, ImagePalette):
     # the elements of these arrays contain a tuple: (Lightness value, Image Palette Index 0-255, Coco Color Index 0-63)
     ClosestRGB = []
     ClosestCMP = []
-    for i in range(len(ColorsUsed)):
+    for i in range(NumColorsUsed):
         idx = ColorsUsed[i]
         BestRGBIdx = None
         BestCMPIdx = None
@@ -88,6 +70,22 @@ def GenerateCocoPalettes(ColorsUsed, ImagePalette):
         Lightness = CocoLuvByCMP[BestCMPIdx][0]
         ClosestRGB.append((Lightness, idx, BestRGBIdx))
         ClosestCMP.append((Lightness, idx, BestCMPIdx))
+    # add black and white to the image palette if they weren't already there
+    bHasBlack = False
+    bHasWhite = False
+    for i in range(NumColorsUsed):
+        if ClosestRGB[i][2] == 0:
+            bHasBlack = True
+        if ClosestRGB[i][2] == 63:
+            bHasWhite = True
+    if NumColorsUsed < 16 and bHasBlack == False:
+        ClosestRGB.append((0.0, -1, 0))
+        ClosestCMP.append((0.0, -1, 0))
+        NumColorsUsed += 1
+    if NumColorsUsed < 16 and bHasWhite == False:
+        ClosestRGB.append((100.0, -1, 63))
+        ClosestCMP.append((100.0, -1, 63))
+        NumColorsUsed += 1
     # sort the proposed RGB and CMP palettes by their lightness values
     ClosestRGB.sort()
     ClosestCMP.sort()
@@ -95,10 +93,11 @@ def GenerateCocoPalettes(ColorsUsed, ImagePalette):
     CMPPalette = []
     RGBPalette = []
     ImageToCocoMap = { }
-    for i in range(len(ColorsUsed)):
+    for i in range(NumColorsUsed):
         RGBPalette.append(ClosestRGB[i][2])
         CMPPalette.append(ClosestCMP[i][2])
-        ImageToCocoMap[ClosestRGB[i][1]] = i;
+        if ClosestRGB[i][1] != -1:
+            ImageToCocoMap[ClosestRGB[i][1]] = i;
     # pad them out to 16 colors if necessary
     while len(CMPPalette) < 16:
         CMPPalette.append(63)
@@ -117,10 +116,23 @@ def BuildCocoColors():
         CocoLuvByCMP.append(ConvertRGBtoLuv(r,g,b))
 
 def GetRGBColor(palidx):
+    """ This is the 'ideal' algorithm
     r = (((palidx >> 4) & 2) | ((palidx >> 2) & 1)) * 0x55
     g = (((palidx >> 3) & 2) | ((palidx >> 1) & 1)) * 0x55
     b = (((palidx >> 2) & 2) | ((palidx >> 0) & 1)) * 0x55
     return (r,g,b)
+    """
+    # these colors are emperically based on a real CM8 monitor
+    CM8Colors = [ [4, 3, 1],      [5, 8, 62],     [11, 54, 13],   [15, 69, 73],   [42, 2, 1],     [39, 7, 57],    [46, 56, 12],   [45, 64, 66], \
+                  [22, 28, 159],  [63, 65, 223],  [25, 70, 159],  [65, 103, 225], [53, 31, 157],  [84, 61, 221],  [57, 72, 155],  [88, 99, 224], \
+                  [42, 153, 51],  [52, 167, 106], [79, 208, 99],  [95, 220, 143], [69, 151, 54],  [74, 164, 100], [104, 206, 101],[111, 217, 138],\
+                  [45, 151, 170], [86, 171, 230], [77, 205, 186], [105, 215, 237],[73, 149, 169], [102, 170, 230],[99, 197, 180], [120, 213, 234],\
+                  [148, 11, 4],   [133, 12, 52],  [148, 63, 13],  [133, 60, 59],  [230, 32, 11],  [213, 23, 47],  [228, 74, 17],  [209, 64, 54],  \
+                  [135, 40, 159], [146, 62, 220], [136, 77, 161], [146, 92, 220], [214, 55, 156], [199, 66, 217], [212, 88, 160], [200, 93, 217], \
+                  [153, 154, 51], [144, 155, 86], [167, 210, 102],[158, 212, 125],[225, 161, 52], [204, 155, 78], [228, 213, 100],[208, 210, 114],\
+                  [139, 150, 166],[154, 163, 224],[151, 199, 178],[161, 209, 229],[211, 155, 167],[197, 155, 215],[211, 201, 177],[202, 207, 223] ]
+    RGB = CM8Colors[palidx]
+    return (RGB[0], RGB[1], RGB[2])
 
 def GetCompositeColor(palidx):
     if palidx == 0:
@@ -529,6 +541,14 @@ def GenerateTileset(tiledesc_fname, palette_fname, tileset_fname):
         sys.exit(4)
     # generate palettes and palette mappings for both Composite and RGB mode on Coco
     (CMPPalette, RGBPalette, ImageToCocoMap) = GenerateCocoPalettes(NewPalette, im.palette.getdata()[1])
+    # validate that there are no duplicate RGB palette entries (this would cause problems with tilesets and sprites)
+    ColorDupList = [ ]
+    for i in range(len(NewPalette)):
+        ColorIdx = RGBPalette[i]
+        if ColorIdx in ColorDupList:
+            print "****Error: multiple colors in image file %s map to the same color %i in the CoCo 3 RGB Palette." % (ImageFilename, ColorIdx)
+            sys.exit(2)
+        ColorDupList.append(ColorIdx)
     # write out palette description file
     f = open(palette_fname, "w")
     f.write("* The contents of this file were automatically generated with\n* gfx-process.py by processing the tileset description file below.\n* Path: %s\n*\n" % tiledesc_fname)
@@ -672,6 +692,7 @@ def GenerateTilemap(leveldesc_fname, tileset_path, tilemap_fname):
                     tilePix.append(ImageToCocoColor[imgPix])
             if tilePix not in Tileset:
                 print "****Error: tile at location %i,%i in map file %s is not present in tileset!" % (x0, y0, ImageFilename)
+                sys.exit(2)
             tileIdx = Tileset.index(tilePix)
             TileLine.append(tileIdx)
         TileMap.append(TileLine)
