@@ -76,7 +76,7 @@ class Group:
             sys.exit(1)
         # compress the sprite and object code, and generate output data for this group
         comp = Compressor(self.SprRaw[:sdtStart-1])
-        self.compSpriteCode = comp.Deflate(bPrintInfo=False, bUseGzip=True)
+        self.compSpriteCode = comp.Deflate(bPrintInfo=False, bUseGzip=False)
         comp = Compressor(self.ObjRaw[:odtStart-1])
         self.compObjectCode = comp.Deflate(bPrintInfo=False, bUseGzip=True)
         self.rawData = self.SprRaw[sdtStart:] + self.ObjRaw[odtStart:] + self.compSpriteCode + self.compObjectCode
