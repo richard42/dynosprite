@@ -327,7 +327,7 @@ char AddFile(char *pszFilename,
     if ((pszTemp = strrchr(pszFilename, '/')) == NULL)
         pszTemp = pszFilename;
     else
-        pszTemp = pszTemp++;
+        pszTemp = pszTemp + 1;
     // Write filename
     while ((cTemp = pszTemp[0]) != '.' && cTemp != 0x00 && iFilenameLen < 8) {
         cTemp = toupper(cTemp);

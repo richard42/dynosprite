@@ -164,7 +164,7 @@ StillRunning@
             tfm         u+,y+                   * 774
             pulsw
  ELSE
-            pshs        x                       * 7
+            tfr         x,y                     * 6
             ldx         #Sound_PageBuffer       * 3
 CopyOneChannelLoop@
             ldd         ,u                      * 5
@@ -187,7 +187,7 @@ CopyOneChannelLoop@
             leax        16,x                    * 5
             cmpx        #Sound_PageBuffer+256   * 4
             bne         CopyOneChannelLoop@     * 3
-            puls        x                       * 7
+            tfr         y,x                     * 6
  ENDC
             inc         1,x                     * update Chan*Ptr
             lda         <PreMappedPages@,PCR
