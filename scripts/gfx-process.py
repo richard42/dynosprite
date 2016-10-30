@@ -205,7 +205,7 @@ def ClosestColorOf16(LuvColor, CocoPalette, PaletteColorset):
     BestDist = -1
     for i in range(16):
         IDistCMP = Vector3Distance(LuvColor, PaletteColorset[CocoPalette[i]])
-        if BestIdx == None or IDistCMP <= BestDist:
+        if BestIdx == None or IDistCMP < BestDist:
             BestIdx = i
             BestDist = IDistCMP
     return BestIdx
