@@ -1644,37 +1644,41 @@ class App:
         print "Total Draw Left code bytes: %i" % TotalDrawL
         print "Total Draw Right code bytes: %i" % TotalDrawR
         print
-        # first column should be averages
-        Names.insert(0, "Average")
-        Pixels.insert(0, sum(Pixels) / numSprites)
-        Storage.insert(0, sum(Storage) / numSprites)
-        MaxCycles.insert(0, sum(MaxCycles) / numSprites)
-        CyclesPerPix.insert(0, sum(CyclesPerPix) / float(numSprites))
-        EraseBytes.insert(0, sum(EraseBytes) / numSprites)
-        EraseCycles.insert(0, sum(EraseCycles) / numSprites)
-        DrawLBytes.insert(0, sum(DrawLBytes) / numSprites)
-        DrawLCycles.insert(0, sum(DrawLCycles) / numSprites)
+        # last column should be averages
+        Names.append("Average")
+        Pixels.append(sum(Pixels) / numSprites)
+        Storage.append(sum(Storage) / numSprites)
+        MaxCycles.append(sum(MaxCycles) / numSprites)
+        CyclesPerPix.append(sum(CyclesPerPix) / float(numSprites))
+        EraseBytes.append(sum(EraseBytes) / numSprites)
+        EraseCycles.append(sum(EraseCycles) / numSprites)
+        DrawLBytes.append(sum(DrawLBytes) / numSprites)
+        DrawLCycles.append(sum(DrawLCycles) / numSprites)
         ValidDrawRBytes = [val for val in DrawRBytes if val is not None]
         ValidDrawRCycles = [val for val in DrawRCycles if val is not None]
         if len(ValidDrawRBytes) > 0:
-            DrawRBytes.insert(0, sum(ValidDrawRBytes) / len(ValidDrawRBytes))
-            DrawRCycles.insert(0, sum(ValidDrawRCycles) / len(ValidDrawRCycles))
+            DrawRBytes.append(sum(ValidDrawRBytes) / len(ValidDrawRBytes))
+            DrawRCycles.append(sum(ValidDrawRCycles) / len(ValidDrawRCycles))
         # print tables
-        self.PrintRow("Sprite Name", Names, str)
-        self.PrintRow("Pixels", Pixels, int)
-        self.PrintRow("Storage Bytes", Storage, int)
-        self.PrintRow("Max Cycles", MaxCycles, int)
-        self.PrintRow("Cycles/pixel", CyclesPerPix, float)
-        print "**************Erase:"
-        self.PrintRow("Code bytes", EraseBytes, int)
-        self.PrintRow("Clock cycles", EraseCycles, int)
-        print "**********Draw_Left:"
-        self.PrintRow("Code bytes", DrawLBytes, int)
-        self.PrintRow("Clock cycles", DrawLCycles, int)
-        if len(ValidDrawRBytes) > 0:
-            print "*********Draw_Right:"
-            self.PrintRow("Code bytes", DrawRBytes, int)
-            self.PrintRow("Clock cycles", DrawRCycles, int)
+        numCols = len(Names)
+        for startIdx in range(0, numCols, 8):
+            endIdx = min(startIdx+8, numCols);
+            self.PrintRow("Sprite Name", Names[startIdx:endIdx], str)
+            self.PrintRow("Pixels", Pixels[startIdx:endIdx], int)
+            self.PrintRow("Storage Bytes", Storage[startIdx:endIdx], int)
+            self.PrintRow("Max Cycles", MaxCycles[startIdx:endIdx], int)
+            self.PrintRow("Cycles/pixel", CyclesPerPix[startIdx:endIdx], float)
+            print "**************Erase:"
+            self.PrintRow("Code bytes", EraseBytes[startIdx:endIdx], int)
+            self.PrintRow("Clock cycles", EraseCycles[startIdx:endIdx], int)
+            print "**********Draw_Left:"
+            self.PrintRow("Code bytes", DrawLBytes[startIdx:endIdx], int)
+            self.PrintRow("Clock cycles", DrawLCycles[startIdx:endIdx], int)
+            if len(ValidDrawRBytes) > 0:
+                print "*********Draw_Right:"
+                self.PrintRow("Code bytes", DrawRBytes[startIdx:endIdx], int)
+                self.PrintRow("Clock cycles", DrawRCycles[startIdx:endIdx], int)
+            print
 
     def WriteAsm(self):
         # make sure we have a group number
