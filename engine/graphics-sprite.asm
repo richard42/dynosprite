@@ -140,9 +140,8 @@ Gfx_SpriteDrawSimple
             mul
             addd        COB.sprPtr,x
             tfr         d,u                     * now U points to SDT entry for sprite to draw
-            * decide which function (left or right) to use (DrawLRParity = ((SpriteGlobalX & 1) ^ (OriginX & 1)))
-            ldb         SDT.originX,u
-            eorb        COB.globalX+1,x
+            * decide which function (left or right) to use (DrawLRParity = SpriteGlobalX & 1)
+            ldb         COB.globalX+1,x
             andb        #1
             bne         DrawRight@
             lda         SDT.cpLeft,u
@@ -157,15 +156,11 @@ LRDone@
             ldy         #MemMgr_VirtualTable
             lda         a,y
             sta         $FFA2
-            * calculate screen pointer offset to start drawing (DrawSrcOffset = (DrawOffY * 256) + DrawOffX + (OriginX >> 1) + (SpriteGlobalX & OriginX & 1))
-            ldb         SDT.originX,u
-            lsrb
-            lda         COB.globalX+1,x
-            anda        SDT.originX,u
-            rora
-            adcb        <gfx_DrawOffsetX+1
-            lda         <gfx_DrawOffsetX
+            * calculate screen pointer offset to start drawing (DrawSrcOffset = ((DrawOffY + OffsetY) * 256) + DrawOffX + OffsetX
+            ldd         <gfx_DrawOffsetX
+            addb        SDT.offsetX,u
             adca        <gfx_DrawOffsetY
+            adda        SDT.offsetY,u
             * finish calculating the page,offset pair where we will draw in physical memory
             addd        <Gfx_DrawScreenOffset    * must be between 0 and $1FFF
             sta         lda_ScreenOffset@+1

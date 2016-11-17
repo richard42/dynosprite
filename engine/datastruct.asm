@@ -139,20 +139,22 @@ rowcrop                 rmd     1
 *-----------------------------------------
 *        width        0        1   Width of sprite
 *       height        1        1   Height of sprite
-*      originX        2        1   Sprite column which will be written to left pixel of destination pointer in drawLeft
-*       cpLeft        3        1   virtual page number for drawLeft function
-*      cpRight        4        1   virtual page number for drawRight function
-*      cpErase        5        1   virtual page number for erase function
-*   storeBytes        6        2   Number of bytes to reserve for storing background pixels
-*     drawLeft        8        2   Pointer to ASM function for storing/drawing
-*    drawRight       10        2   Pointer to ASM function for storing/drawing or NULL
-*        erase       12        2   Pointer to ASM function for erasing sprite
-*    collision       14        2   Pointer to NSWE collision table, or NULL
+*      offsetX        2        1   Offset in bytes to add to global X coordinate to draw sprite at hotspot
+*      offsetY        3        1   Offset in lines to add to global Y coordinate to draw sprite at hotspot
+*       cpLeft        4        1   virtual page number for drawLeft function
+*      cpRight        5        1   virtual page number for drawRight function
+*      cpErase        6        1   virtual page number for erase function
+*   storeBytes        7        2   Number of bytes to reserve for storing background pixels
+*     drawLeft        9        2   Pointer to ASM function for storing/drawing
+*    drawRight       11        2   Pointer to ASM function for storing/drawing or NULL
+*        erase       13        2   Pointer to ASM function for erasing sprite
+*         res1       15        1   Reserved
 
 SDT         STRUCT
 width                   rmb     1
 height                  rmb     1
-originX                 rmb     1
+offsetX                 rmb     1
+offsetY                 rmb     1
 cpLeft                  rmb     1
 cpRight                 rmb     1
 cpErase                 rmb     1
@@ -160,7 +162,7 @@ storeBytes              rmd     1
 drawLeft                rmd     1
 drawRight               rmd     1
 erase                   rmd     1
-collision               rmd     1
+res1                    rmb     1
             ENDSTRUCT
 
 * -----------------------------------------------------------------------------

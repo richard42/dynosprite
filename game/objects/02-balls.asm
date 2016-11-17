@@ -176,7 +176,7 @@ XTimes3@
             rola
             addd        G2OB0.velX,y
 XDone@
-            std         <FrameVelX88@,PCR
+            std         FrameVelX88@,PCR
             addb        G2OB0.fracX,y
             adca        #0
             stb         G2OB0.fracX,y
@@ -234,8 +234,10 @@ BallCrashDone@
             * clip the X coordinate to be in the screen
             ldd         COB.globalX,x
             subd        <Gfx_BkgrndNewX2
+            cmpd        #8
             bge         XNoClipL@
             ldd         <Gfx_BkgrndNewX2
+            addd        #8
             std         COB.globalX,x
             * VelX = (VelX < 0) ? -VelX+ScreenDeltaX : VelX+ScreenDeltaX
             ldd         G2OB0.velX,y
@@ -249,10 +251,10 @@ FrameVelX88@            zmd     1
 FrameVelY88@            zmd     1
 *
 XNoClipL@
-            cmpd        #320-17
+            cmpd        #320-9
             bls         XClipDone@
             ldd         <Gfx_BkgrndNewX2
-            addd        #320-17
+            addd        #320-9
             std         COB.globalX,x
             * VelX = (VelX > 0) ? -VelX+ScreenDeltaX : VelX+ScreenDeltaX
             ldd         G2OB0.velX,y
@@ -264,8 +266,10 @@ XClipDone@
             * clip the Y coordinate to be in the screen
             ldd         COB.globalY,x
             subd        <Gfx_BkgrndNewY
+            cmpd        #8
             bge         YNoClipU@
             ldd         <Gfx_BkgrndNewY
+            addd        #8
             std         COB.globalY,x
             * VelY = (VelY < 0) ? -VelY+ScreenDeltaY : VelY+ScreenDeltaY
             ldd         G2OB0.velY,y
@@ -275,10 +279,10 @@ XClipDone@
             std         G2OB0.velY,y
             bra         YClipDone@
 YNoClipU@
-            cmpd        #200-17
+            cmpd        #200-9
             bls         YClipDone@
             ldd         <Gfx_BkgrndNewY
-            addd        #200-17
+            addd        #200-9
             std         COB.globalY,x
             * VelY = (VelY > 0) ? -VelY+ScreenDeltaY : VelY+ScreenDeltaY
             ldd         G2OB0.velY,y

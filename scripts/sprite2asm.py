@@ -291,13 +291,16 @@ class Sprite:
         self.hasSinglePixelPos = False
         self.hasRowPointerArray = False
         self.matrix = []
+        self.hotspot = (0, 0)
         # member variables which are calculated
         self.numPixels = 0
         self.numSavedBytes = 0
         self.rowStripList = []
-        self.originX = 0  # Index of pixel in top row of sprite which will be written into left pixel (MSB) of
-                          # the byte to which the destination pointer is pointing when DrawLeft is called.
-                          # When DrawRight is called, this pixel will be written into the right (LSB) of the destination byte
+        self.originXsprite = 0  # Index of pixel column is sprite which contains the hotspot.
+                                # Note that the difference between originXsprite and originXcode must be an even number
+        self.originXcode = 0    # Index of pixel column in sprite which will be written into left pixel (MSB) of
+                                # the byte to which the destination pointer is pointing when DrawLeft is called.
+                                # When DrawRight is called, this pixel will be written into the right (LSB) of the destination byte
         self.funcErase = AsmStream("Erase_%s" % name)
         self.funcDraw = [ None, None ]
 
@@ -314,6 +317,9 @@ class Sprite:
                 self.hasSinglePixelPos = (value.lower() == "true")
             elif key == "rowpointerarray":
                 self.hasRowPointerArray = (value.lower() == "true")
+            elif key == "hotspot":
+                coords = [ int(v) for v in value[1:-1].split(',') ]
+                self.hotspot = (coords[0], coords[1])
             else:
                 print "illegal line in Sprite '%s' definition: %s" % (self.name, line)
         else:
@@ -358,23 +364,8 @@ class Sprite:
             # append this strip array to the row list
             self.rowStripList.append(stripList)
         # calculate OriginX
-        if not self.hasSinglePixelPos:
-            self.originX = (self.width >> 1) & ~1
-        else:
-            # we must calculate optimal originX to minimize bytes stored
-            oddCnt = 0
-            evenCnt = 0
-            for y in range(self.height):
-                for strip in self.rowStripList[y]:
-                    if (strip[1] & 1) == 1 and strip[1] >= 3:
-                        if (strip[0] & 1) == 1:
-                            oddCnt += 1
-                        else:
-                            evenCnt += 1
-            if evenCnt >= oddCnt:
-                self.originX = (self.width >> 1) & ~1
-            else:
-                self.originX = ((self.width >> 1) & ~1) + 1
+        self.originXsprite = self.hotspot[0]
+        self.originXcode = ((self.width >> 1) & ~1) | (self.originXsprite & 1)
 
     # *************************************************************************************************
     # Sprite class: Erase function generation
@@ -407,8 +398,8 @@ class Sprite:
             for x in range(self.width):
                 if self.matrix[y][x] == -1:
                     continue
-                byteOffL = (x - self.originX) >> 1
-                byteOffR = (x - self.originX + 1) >> 1
+                byteOffL = (x - self.originXcode) >> 1
+                byteOffR = (x - self.originXcode + 1) >> 1
                 if len(byteList) == 0 or byteList[-1] != byteOffL:
                     byteList.append(byteOffL)
                 if self.hasSinglePixelPos and byteList[-1] != byteOffR:
@@ -555,8 +546,8 @@ class Sprite:
             for x in range(self.width):
                 if self.matrix[y][x] == -1:
                     continue
-                byteOffL = (x - self.originX) >> 1
-                byteOffR = (x - self.originX + 1) >> 1
+                byteOffL = (x - self.originXcode) >> 1
+                byteOffR = (x - self.originXcode + 1) >> 1
                 if len(byteStoreList) == 0 or byteStoreList[-1] != byteOffL:
                     byteStoreList.append(byteOffL)
                 if self.hasSinglePixelPos and byteStoreList[-1] != byteOffR:
@@ -567,10 +558,10 @@ class Sprite:
             # - Command 2: store and write 1 nibble
             # - Command 3: store and write both nibbles
             byteCmds = [ ]  # value is (command number, value to store, mask)
-            byteOffStart = (0 - self.originX) >> 1
-            byteOffEnd = (self.width - self.originX) >> 1
+            byteOffStart = (0 - self.originXcode) >> 1
+            byteOffEnd = (self.width - self.originXcode) >> 1
             for offX in range(byteOffStart,byteOffEnd+1):
-                pixNibL = ((offX << 1) + self.originX - funcNum)
+                pixNibL = ((offX << 1) + self.originXcode - funcNum)
                 pixNibR = pixNibL + 1
                 nibToWrite = 0
                 valToWrite = 0
@@ -1716,8 +1707,10 @@ class App:
             f.write("            fcb         %s%s* width\n" % (p, " " * (24-len(p))))
             p = str(sprite.height)
             f.write("            fcb         %s%s* height\n" % (p, " " * (24-len(p))))
-            p = str(sprite.originX)
-            f.write("            fcb         %s%s* originX\n" % (p, " " * (24-len(p))))
+            p = str((sprite.originXcode - sprite.originXsprite)/2)
+            f.write("            fcb         %s%s* offsetX\n" % (p, " " * (24-len(p))))
+            p = str(-sprite.hotspot[1])
+            f.write("            fcb         %s%s* offsetY\n" % (p, " " * (24-len(p))))
             f.write("            fcb         0                       * cpLeft\n")
             f.write("            fcb         0                       * cpRight\n")
             f.write("            fcb         0                       * cpErase\n")
@@ -1732,7 +1725,7 @@ class App:
                 f.write("            fdb         0                       * length of drawRight in bytes\n")
             p = str(sprite.funcErase.metrics.bytes)
             f.write("            fdb         %s%s* length of erase in bytes\n" % (p, " " * (24-len(p))))
-            f.write("            fdb         0                       * collision\n")
+            f.write("            fcb         0                       * res1\n")
 
 # *************************************************************************************************
 # main function for standard script execution

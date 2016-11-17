@@ -778,7 +778,7 @@ def GenerateSprites(spritedesc_fname, palette_path, sprite_fname):
         f.write("Width = %i\n" % len(sprite.pixArray[0]))
         f.write("Height = %i\n" % len(sprite.pixArray))
         f.write("SinglePixelPosition = %s\n" % str(sprite.singlepixelpos))
-        f.write("* Hotspot = (%i,%i)\n" % (sprite.hotspot[0], sprite.hotspot[1]))
+        f.write("Hotspot = (%i,%i)\n" % (sprite.hotspot[0], sprite.hotspot[1]))
         for pixLine in sprite.pixArray:
             f.write(" ".join([pixValMap[v] for v in pixLine]))
             f.write("\n")
