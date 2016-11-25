@@ -411,37 +411,32 @@ def parseSpriteDescription(descFilename):
     info.sprites.append(curSprite)
     return info
 
-def RecursivePaint(ImgData, Width, Height, x, y, transparentIdx, pixCoordColorList):
+def NonRecursivePaint(ImgData, Width, Height, x, y, transparentIdx, pixCoordColorList):
     hitlist = deque()
     hitlist.append((x, y))
-    RecursivePaint2(ImgData, Width, Height, transparentIdx, pixCoordColorList, hitlist)
-
-def RecursivePaint2(ImgData, Width, Height, transparentIdx, pixCoordColorList, hitlist):
     while hitlist:
-      x, y = hitlist.pop()
-
-      # return if coordinates are output image boundary
-      if x < 0 or y < 0 or x >= Width or y >= Height:
+        # get coordinates of pixel to examine
+        x, y = hitlist.pop()
+        # return if coordinates are outside image boundary
+        if x < 0 or y < 0 or x >= Width or y >= Height:
         continue
-
-      # return if pixel at current coordinate is transparent
-      pixColor = ImgData[y][x]
-      if pixColor == transparentIdx:
+        # return if pixel at current coordinate is transparent
+        pixColor = ImgData[y][x]
+        if pixColor == transparentIdx:
           continue
-      # we have a non-transparent pixel, so record the color and coordinate
-      pixCoordColorList.append((x, y, pixColor))
-      # then make this pixel transparent to avoid processing it again
-      ImgData[y][x] = transparentIdx
-
-      # and then search all around it, in the 8-neighborhood
-      hitlist.append((x-1, y))
-      hitlist.append((x-1, y+1))
-      hitlist.append((x,   y+1))
-      hitlist.append((x+1, y+1))
-      hitlist.append((x+1, y))
-      hitlist.append((x+1, y-1))
-      hitlist.append((x,   y-1))
-      hitlist.append((x-1, y-1))
+        # we have a non-transparent pixel, so record the color and coordinate
+        pixCoordColorList.append((x, y, pixColor))
+        # then make this pixel transparent to avoid processing it again
+        ImgData[y][x] = transparentIdx
+        # and then search all around it, in the 8-neighborhood
+        hitlist.append((x-1, y))
+        hitlist.append((x-1, y+1))
+        hitlist.append((x,   y+1))
+        hitlist.append((x+1, y+1))
+        hitlist.append((x+1, y))
+        hitlist.append((x+1, y-1))
+        hitlist.append((x,   y-1))
+        hitlist.append((x-1, y-1))
 
 def FindSpritePixels(sprite, ImgData, Width, Height, ImageToCocoColor, transparentIdx):
     # start by searching around the starting point in a spiral pattern until we find a non-transparent pixel
@@ -474,9 +469,9 @@ def FindSpritePixels(sprite, ImgData, Width, Height, ImageToCocoColor, transpare
     if totalSteps >= 40:
         print "****Error: sprite %s not found within 20 pixels of location %i,%i" % (sprite.name, sprite.location[0], sprite.location[1])
         sys.exit(2)
-    # now we apply a recursive painting algoritm to produce a list of all of the touching non-transparent pixels
+    # now we apply a painting algoritm to produce a list of all of the touching non-transparent pixels
     pixCoordColorList = [ ]
-    RecursivePaint(ImgData, Width, Height, x, y, transparentIdx, pixCoordColorList)
+    NonRecursivePaint(ImgData, Width, Height, x, y, transparentIdx, pixCoordColorList)
     # get lists of all X coordinates and Y coordinates, then calculate width and height of sprite matrix
     Xcoords = [ v[0] for v in pixCoordColorList ]
     Ycoords = [ v[1] for v in pixCoordColorList ]
