@@ -3,17 +3,17 @@
 # DynoSprite - scripts/gfx-process.py
 # Copyright (c) 2016, Richard Goedeken
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice, this
 #   list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -30,6 +30,7 @@ import os
 import sys
 import math
 import numpy
+from collections import deque
 from PIL import Image
 
 #******************************************************************************
@@ -223,7 +224,7 @@ class TilesetInfo:
         self.tilesetStart = [0, 0]
         self.tilesetSize = [0, 0]
         self.tiledesc_lines = [ ]
-        
+
 def parseTilesetDescription(descFilename):
     f = open(descFilename, "r").read()
     info = TilesetInfo()
@@ -264,7 +265,7 @@ class LevelInfo:
         self.tilesetidx = -1
         self.tilemapStart = None
         self.tilemapSize = None
-        
+
 def parseLevelDescription(descFilename):
     f = open(descFilename, "r").read()
     info = LevelInfo()
@@ -345,7 +346,7 @@ class SpriteGroupInfo:
         self.paletteidx = -1
         self.transparentRGB = [0,0,0]
         self.sprites = [ ]
-        
+
 def parseSpriteDescription(descFilename):
     f = open(descFilename, "r").read()
     info = SpriteGroupInfo()
@@ -411,26 +412,36 @@ def parseSpriteDescription(descFilename):
     return info
 
 def RecursivePaint(ImgData, Width, Height, x, y, transparentIdx, pixCoordColorList):
-    # return if coordinates are output image boundary
-    if x < 0 or y < 0 or x >= Width or y >= Height:
-        return
-    # return if pixel at current coordinate is transparent
-    pixColor = ImgData[y][x]
-    if pixColor == transparentIdx:
-        return
-    # we have a non-transparent pixel, so record the color and coordinate
-    pixCoordColorList.append((x, y, pixColor))
-    # then make this pixel transparent to avoid processing it again
-    ImgData[y][x] = transparentIdx
-    # and then search all around it, in the 8-neighborhood
-    RecursivePaint(ImgData, Width, Height, x-1, y-1, transparentIdx, pixCoordColorList)
-    RecursivePaint(ImgData, Width, Height,   x, y-1, transparentIdx, pixCoordColorList)
-    RecursivePaint(ImgData, Width, Height, x+1, y-1, transparentIdx, pixCoordColorList)
-    RecursivePaint(ImgData, Width, Height, x+1, y,   transparentIdx, pixCoordColorList)
-    RecursivePaint(ImgData, Width, Height, x+1, y+1, transparentIdx, pixCoordColorList)
-    RecursivePaint(ImgData, Width, Height,   x, y+1, transparentIdx, pixCoordColorList)
-    RecursivePaint(ImgData, Width, Height, x-1, y+1, transparentIdx, pixCoordColorList)
-    RecursivePaint(ImgData, Width, Height, x-1, y,   transparentIdx, pixCoordColorList)
+    hitlist = deque()
+    hitlist.append((x, y))
+    RecursivePaint2(ImgData, Width, Height, transparentIdx, pixCoordColorList, hitlist)
+
+def RecursivePaint2(ImgData, Width, Height, transparentIdx, pixCoordColorList, hitlist):
+    while hitlist:
+      x, y = hitlist.pop()
+
+      # return if coordinates are output image boundary
+      if x < 0 or y < 0 or x >= Width or y >= Height:
+        continue
+
+      # return if pixel at current coordinate is transparent
+      pixColor = ImgData[y][x]
+      if pixColor == transparentIdx:
+          continue
+      # we have a non-transparent pixel, so record the color and coordinate
+      pixCoordColorList.append((x, y, pixColor))
+      # then make this pixel transparent to avoid processing it again
+      ImgData[y][x] = transparentIdx
+
+      # and then search all around it, in the 8-neighborhood
+      hitlist.append((x-1, y))
+      hitlist.append((x-1, y+1))
+      hitlist.append((x,   y+1))
+      hitlist.append((x+1, y+1))
+      hitlist.append((x+1, y))
+      hitlist.append((x+1, y-1))
+      hitlist.append((x,   y-1))
+      hitlist.append((x-1, y-1))
 
 def FindSpritePixels(sprite, ImgData, Width, Height, ImageToCocoColor, transparentIdx):
     # start by searching around the starting point in a spiral pattern until we find a non-transparent pixel
@@ -440,7 +451,7 @@ def FindSpritePixels(sprite, ImgData, Width, Height, ImageToCocoColor, transpare
     dir = 0
     totalSteps = 1
     curSteps = 0
-    while totalSteps < 20:
+    while totalSteps < 40:
         # test for opaque pixel
         if x >= 0 and y >= 0 and x < Width and y < Height and ImgData[y][x] != transparentIdx:
             break
@@ -460,8 +471,8 @@ def FindSpritePixels(sprite, ImgData, Width, Height, ImageToCocoColor, transpare
             dir = (dir + 1) % 4
             if dir == 0 or dir == 2:
                 totalSteps += 1
-    if totalSteps >= 20:
-        print "****Error: sprite %s not found within 10 pixels of location %i,%i" % (sprite.name, sprite.location[0], sprite.location[1])
+    if totalSteps >= 40:
+        print "****Error: sprite %s not found within 20 pixels of location %i,%i" % (sprite.name, sprite.location[0], sprite.location[1])
         sys.exit(2)
     # now we apply a recursive painting algoritm to produce a list of all of the touching non-transparent pixels
     pixCoordColorList = [ ]
