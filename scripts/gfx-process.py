@@ -419,11 +419,11 @@ def NonRecursivePaint(ImgData, Width, Height, x, y, transparentIdx, pixCoordColo
         x, y = hitlist.pop()
         # return if coordinates are outside image boundary
         if x < 0 or y < 0 or x >= Width or y >= Height:
-        continue
+            continue
         # return if pixel at current coordinate is transparent
         pixColor = ImgData[y][x]
         if pixColor == transparentIdx:
-          continue
+            continue
         # we have a non-transparent pixel, so record the color and coordinate
         pixCoordColorList.append((x, y, pixColor))
         # then make this pixel transparent to avoid processing it again
