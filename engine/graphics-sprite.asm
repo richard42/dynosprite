@@ -133,7 +133,7 @@ Gfx_SpriteDrawSimple
             lsra
             rorb
             subd        <Gfx_BkgrndNewX
-            std         <gfx_DrawOffsetX
+            stb         <gfx_DrawOffsetX
             * get pointer to Sprite Descriptor Table for current sprite
             lda         [COB.statePtr,x]        * sprite number must be first byte in state data
             ldb         #sizeof{SDT}
@@ -157,9 +157,9 @@ LRDone@
             lda         a,y
             sta         $FFA2
             * calculate screen pointer offset to start drawing (DrawSrcOffset = ((DrawOffY + OffsetY) * 256) + DrawOffX + OffsetX
-            ldd         <gfx_DrawOffsetX
+            ldb         <gfx_DrawOffsetX
             addb        SDT.offsetX,u
-            adca        <gfx_DrawOffsetY
+            lda         <gfx_DrawOffsetY
             adda        SDT.offsetY,u
             * finish calculating the page,offset pair where we will draw in physical memory
             addd        <Gfx_DrawScreenOffset    * must be between 0 and $1FFF

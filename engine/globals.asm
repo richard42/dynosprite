@@ -202,7 +202,7 @@ rr_RowsToDraw           zmb     1
 rr_TexRowOffset         zmb     1
 
 * locals for Gfx_SpriteDrawSimple
-gfx_DrawOffsetX         zmb     2
+gfx_DrawOffsetX         zmb     1
 gfx_DrawOffsetY         zmb     1
 gfx_DrawSpritePage      zmb     1
 gfx_DrawSpriteOffset    zmb     2
