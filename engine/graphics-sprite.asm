@@ -172,24 +172,33 @@ LRDone@
             sta         lda_ScreenOffset@+1
             anda        #$1F
             tfr         d,x                     * offset is in X
+            leax        $6000,x                 * X is now pointer where we will write pixel data
 lda_ScreenOffset@
             lda         #0                      * SMC: re-load high byte of screen offset
-            anda        #$E0                    * do we need to bump the page?
-            beq         >
             lsra
             lsra
             lsra
             lsra
             lsra
-!           adda        <Gfx_DrawScreenPage
-            sta         <gfx_DrawSpritePage
+            adda        <Gfx_DrawScreenPage     * page is in A
+            * corner case: if starting offset is really close to the beginning of a page, we need to map the prior page as well,
+            * because the draw/erase functions may load/store the first byte with an offset of up to -16 from the X register
+            cmpx        #$6020
+            bhs         >
+            leax        $2000,x
+            deca
+ IFDEF DEBUG
+            bpl         >
+            swi                                 * error: starting page is first page
+ ENDC
+!           sta         <gfx_DrawSpritePage
+            stx         <gfx_DrawSpriteOffset
+            * screen window is mapped to $6000-$BFFF
             sta         $FFA3
             inca
             sta         $FFA4
             inca
-            sta         $FFA5                   * screen window is mapped to $6000-$BFFF
-            leax        $6000,x                 * X is now pointer where we will write pixel data
-            stx         <gfx_DrawSpriteOffset
+            sta         $FFA5
             * set up Erase buffer stack data, and call Draw function
             ldy         <Gfx_SpriteErasePtrPtr
             ldy         2,y
