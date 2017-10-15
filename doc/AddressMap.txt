@@ -21,7 +21,7 @@
   Graphics (drawing/erasing sprite) Gfx_SpriteDrawSimple, Gfx_SpriteEraseOffscreen:
     $0000-$1FFF - BASIC RAM page 0 (dynamic heap contains object tables)
     $4000-$5FFF - Sprite draw/erase code blocks
-    $8000-$BFFF - graphics output window
+    $6000-$BFFF - graphics output window
     $C000-$DFFF - sprite erase data
   Memory copy:
     $A000-$BFFF - MemMgr copy source

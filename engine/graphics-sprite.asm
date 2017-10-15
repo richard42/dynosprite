@@ -93,9 +93,11 @@ EraseOne@
             swi                                 * error: only No Rowcrop mode is currently supported
 !           ldy         -3,u                    * Y = starting offset to restore bytes in graphics memory
             lda         -4,u                    * A = starting physical page # for graphics memory
+            sta         $FFA3
+            inca
             sta         $FFA4
             inca
-            sta         $FFA5                   * screen window is mapped to $8000-$BFFF
+            sta         $FFA5                   * screen window is mapped to $6000-$BFFF
             lda         -5,u                    * A = Code page (virtual handle) for erase function for this sprite
             ldx         #MemMgr_VirtualTable
             lda         a,x
@@ -149,7 +151,11 @@ Gfx_SpriteDrawSimple
             bra         LRDone@
 DrawRight@
             lda         SDT.cpRight,u
-            ldb         #SDT.drawRight
+ IFDEF DEBUG
+            bne         >
+            swi                                 * error: odd X position coordinate for sprite without SinglePixelPosition
+ ENDC
+!           ldb         #SDT.drawRight
 LRDone@
             stb         <gfx_DrawLeftOrRight
             * map the code page which contains the drawing function
@@ -177,10 +183,12 @@ lda_ScreenOffset@
             lsra
 !           adda        <Gfx_DrawScreenPage
             sta         <gfx_DrawSpritePage
+            sta         $FFA3
+            inca
             sta         $FFA4
             inca
-            sta         $FFA5                   * screen window is mapped to $8000-$BFFF
-            leax        $8000,x                 * X is now pointer where we will write pixel data
+            sta         $FFA5                   * screen window is mapped to $6000-$BFFF
+            leax        $6000,x                 * X is now pointer where we will write pixel data
             stx         <gfx_DrawSpriteOffset
             * set up Erase buffer stack data, and call Draw function
             ldy         <Gfx_SpriteErasePtrPtr
