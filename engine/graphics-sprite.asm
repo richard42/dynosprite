@@ -136,8 +136,27 @@ Gfx_SpriteDrawSimple
             rorb
             subd        <Gfx_BkgrndNewX
             stb         <gfx_DrawOffsetX
+            * get maximum number of sprites in this group
+ IFDEF DEBUG
+            lda         COB.groupIdx,x
+            ldy         <Gfx_SpriteGroupsPtr
+            ldb         #Gfx_NumSpriteGroups
+!           cmpa        SGT.groupIdx,y
+            beq         FoundSpriteGroup@
+            leay        sizeof{SGT},y
+            decb
+            bne         <
+            swi                                 * error: group index for current object not found
+FoundSpriteGroup@
+ ENDC
             * get pointer to Sprite Descriptor Table for current sprite
             lda         [COB.statePtr,x]        * sprite number must be first byte in state data
+ IFDEF DEBUG
+            cmpa        SGT.spCount,y
+            bls         SpriteIdxOkay@
+            swi                                 * error: sprite index is greater than number of sprites in group
+SpriteIdxOkay@
+ ENDC
             ldb         #sizeof{SDT}
             mul
             addd        COB.sprPtr,x
