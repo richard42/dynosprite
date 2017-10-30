@@ -221,6 +221,7 @@ class ImageColors:
 class TilesetInfo:
     def __init__(self):
         self.filename = ""
+        self.maskFilename = ""
         self.tilesetStart = [0, 0]
         self.tilesetSize = [0, 0]
         self.tiledesc_lines = [ ]
@@ -244,6 +245,8 @@ def parseTilesetDescription(descFilename):
             value = line[pivot+1:].strip()
             if key == "image":
                 info.filename = value
+            elif key == "collisionmask":
+                info.maskFilename = value
             elif key == "tilesetstart":
                 info.tilesetStart = [ int(c) for c in value.split(",") ]
             elif key == "tilesetsize":
@@ -494,7 +497,7 @@ def PrintUsage():
     print "****Usage: %s <command> [arguments]" % sys.argv[0]
     print "    Commands:"
     print "        mixtiles <input_mapdesc_txt> <output_image_file>"
-    print "        gentileset <input_tiledesc_txt> <output_palette_file> <output_tileset_file>"
+    print "        gentileset <input_tiledesc_txt> <output_palette_file> <output_tileset_file> <output_collisionmask_file>"
     print "        gentilemap <input_leveldesc_txt> <input_tileset_path> <output_tilemap_file>"
     print "        gensprites <input_spritedesc_txt> <input_palette_path> <output_sprite_file>"
     sys.exit(1)
@@ -503,7 +506,7 @@ def PrintUsage():
 # functions for primary commands
 #
 
-def GenerateTileset(tiledesc_fname, palette_fname, tileset_fname):
+def GenerateTileset(tiledesc_fname, palette_fname, tileset_fname, maskset_fname):
     # parse tileset description file
     info = parseTilesetDescription(tiledesc_fname)
     # validate tileset parameters
@@ -516,6 +519,12 @@ def GenerateTileset(tiledesc_fname, palette_fname, tileset_fname):
     ImageFilename = os.path.join(os.path.dirname(tiledesc_fname), info.filename)
     if os.path.exists(ImageFilename) == False:
         print "****Error: image file '%s' for tileset doesn't exist!" % ImageFilename
+        sys.exit(3)
+    MaskFilename = None
+    if info.maskFilename != "":
+        MaskFilename = os.path.join(os.path.dirname(tiledesc_fname), info.maskFilename)
+    if MaskFilename is not None and os.path.exists(MaskFilename) == False:
+        print "****Error: collision mask file '%s' for tileset doesn't exist!" % MaskFilename
         sys.exit(3)
     # Build Luv palettes for all of the colors in the Coco's 64-color palette for RGB and Composite modes
     BuildCocoColors()
@@ -576,6 +585,8 @@ def GenerateTileset(tiledesc_fname, palette_fname, tileset_fname):
     f.close()
     # generate a list of all the unique tiles
     TileList = [ ]
+    FirstTileLocation = [ ]
+    TileIdxByLocation = { }
     for y0 in range(0,height,16):
         if y0 < info.tilesetStart[1] or y0 >= info.tilesetStart[1]+info.tilesetSize[1]:
             continue
@@ -589,6 +600,11 @@ def GenerateTileset(tiledesc_fname, palette_fname, tileset_fname):
                     tilePix.append(ImageToCocoMap[imgPix])
             if tilePix not in TileList:
                 TileList.append(tilePix)
+                FirstTileLocation.append((x0,y0))
+                TileIdxByLocation[(x0,y0)] = len(TileList)-1
+            else:
+                tileIdx = TileList.index(tilePix)
+                TileIdxByLocation[(x0,y0)] = tileIdx
     # write out tileset file
     f = open(tileset_fname, "w")
     f.write("* The contents of this file were automatically generated with\n* gfx-process.py by processing the tileset description file below.\n* Path: %s\n*\n" % tiledesc_fname)
@@ -605,8 +621,138 @@ def GenerateTileset(tiledesc_fname, palette_fname, tileset_fname):
                 f.write("%x\n" % tilePix[i])
         f.write("\n")
     f.close()
+    # initialize trivial (no collisions) tile collision table
+    # each tile has 1 entry in this table: 0 = no collision anywhere, 255 = completely solid, 1-254 = use collision mask bitmap with index n-1
+    CollisionTable = [ 0 ] * len(TileList)
+    # if we have a collision mask image, load it and process it
+    if MaskFilename is not None:
+        # create PIL Image object and get the resolution
+        imMask = Image.open(MaskFilename)
+        width = imMask.size[0]
+        height = imMask.size[1]
+        ImgData = imMask.getdata()
+        # validate image parameters
+        if (width & 15) != 0:
+            print "****Error: width of image '%s' is not divisible by 16." % MaskFilename
+            sys.exit(2)
+        if im.mode != 'P':
+            print "****Error: image '%s' is not a palette (indexed color) image" % MaskFilename
+            sys.exit(3)
+        if width < info.tilesetStart[0] + info.tilesetSize[0]:
+            print "****Error: image '%s' width (%i) is less than tileset width (%i+%i)" % (MaskFilename, width, info.tilesetStart[0], info.tilesetSize[0])
+            sys.exit(3)
+        if height < info.tilesetStart[1] + info.tilesetSize[1]:
+            print "****Error: image '%s' height (%i) is less than tileset height (%i+%i)" % (MaskFilename, height, info.tilesetStart[1], info.tilesetSize[1])
+            sys.exit(3)
+        # make a histogram of the palette entries
+        ColorHist = [ 0 for j in range(256) ]
+        for y0 in range(info.tilesetSize[1]):
+            y = info.tilesetStart[1] + y0
+            for x0 in range(info.tilesetSize[0]):
+                x = info.tilesetStart[0] + x0
+                pix = ImgData[y*width + x]
+                ColorHist[pix] = ColorHist[pix] + 1
+        # make a new palette which will only contain the colors which are used in this input image
+        NewPalette = []
+        for j in range(256):
+            if ColorHist[j] > 0:
+                NewPalette.append(j)
+        # we cannot make a Coco image out of this if it uses more than 16 colors
+        if len(NewPalette) > 16:
+            print "****Error: image '%s' uses more than 16 colors! (actual=%i)" % (MaskFilename, len(NewPalette))
+            sys.exit(4)
+        # generate palettes and palette mappings for both Composite and RGB mode on Coco
+        (CMPPalette, RGBPalette, ImageToCocoMap) = GenerateCocoPalettes(NewPalette, im.palette.getdata()[1])
+        # generate map from RGB Palette value to collision mask nybble (0-15)
+        # bit 0: collide moving left  bit 1: collide moving right  bit 2: collide moving up  bit 3: collide moving down
+        CocoToMask = [ ]
+        for j in range(16):
+            RGBValue = RGBPalette[j]
+            MaskValue = 0
+            if (RGBValue & 0x20) == 0x20:
+                MaskValue += 2       # collision moving right
+            if (RGBValue & 0x08) == 0x08:
+                MaskValue += 1       # collision moving left
+            if (RGBValue & 0x10) == 0x10:
+                MaskValue += 8       # collision moving down
+            if (RGBValue & 0x07) == 0x07:
+                MaskValue += 4       # collision moving up
+            elif (RGBValue & 0x07) != 0:
+                for i in range(0,width*height):
+                    y = int(i / width)
+                    x = i - (y * width)
+                    if y < info.tilesetStart[1] or y >= info.tilesetStart[1]+info.tilesetSize[1]:
+                        continue
+                    if x < info.tilesetStart[0] or x >= info.tilesetStart[0]+info.tilesetSize[0]:
+                        continue;
+                    imgPix = ImgData[i]
+                    if ImageToCocoMap[imgPix] == j:
+                        break
+                print "****Error: collision mask image '%s' contains RGB Color %i (at %i,%i) which is invalid" % (MaskFilename, RGBValue, x, y)
+                sys.exit(4)
+            CocoToMask.append(MaskValue)
+        # re-initialize the collision table to all None values, so we can validate the mask bitmaps
+        CollisionTable = [ None ] * len(TileList)
+        # generate a list of all the unique masks
+        MaskList = [ ]
+        MaskIdxByLocation = [ ]
+        for y0 in range(0,height,16):
+            if y0 < info.tilesetStart[1] or y0 >= info.tilesetStart[1]+info.tilesetSize[1]:
+                continue
+            for x0 in range(0,width,16):
+                if x0 < info.tilesetStart[0] or x0 >= info.tilesetStart[0]+info.tilesetSize[0]:
+                    continue;
+                maskPix = [ ]
+                for y in range(y0,y0+16):
+                    for x in range(x0,x0+16):
+                        imgPix = ImgData[y*width+x]
+                        maskPix.append(CocoToMask[ImageToCocoMap[imgPix]])
+                # calculate collision table value for this bitmap
+                if maskPix == [0] * 256:
+                   collisionValue = 0
+                elif maskPix == [15] * 256:
+                    collisionValue = 255
+                else:
+                    if maskPix not in MaskList:
+                        MaskList.append(maskPix)
+                        collisionValue = len(MaskList)
+                    else:
+                        maskIdx = MaskList.index(maskPix)
+                        collisionValue = maskIdx + 1
+                # find out while tile is at this location in the tileset image
+                tileIdx = TileIdxByLocation[(x0,y0)]
+                # set or verify the collision table value for the tile at this location
+                if CollisionTable[tileIdx] is None:
+                    CollisionTable[tileIdx] = collisionValue
+                elif CollisionTable[tileIdx] != collisionValue:
+                    firstLoc = FirstTileLocation[tileIdx]
+                    print "****Error: two tiles (at locations %i,%i and %i,%i) are the same in the tileset but different in the collision mask image" % (firstLoc[0], firstLoc[1], x0, y0)
+                    sys.exit(3)
+    # write out collision mask file
+    f = open(maskset_fname, "w")
+    f.write("* The contents of this file were automatically generated with\n* gfx-process.py by processing the tileset description file below.\n* Path: %s\n*\n" % tiledesc_fname)
+    f.write("\n".join(["* " + line for line in info.tiledesc_lines]))
+    f.write("\n* There are %i entries (one for each tile) in the collision table\n" % len(CollisionTable))
+    f.write("* each tile has 1 entry in this table: 0 = no collision anywhere, 255 = completely solid, 1-254 = use collision mask bitmap with index n-1\n")
+    f.write(", ".join([str(n) for n in CollisionTable]))
+    f.write("\n\n")
+    if MaskFilename is not None:
+        f.write("* Each collision mask pixel is 4 bits (0-15)\n")
+        f.write("* bit 0: collide moving left, bit 1: collide moving right, bit 2: collide moving up, bit 3: collide moving down\n\n")
+        idx = 0
+        for maskPix in MaskList:
+            f.write("* Mask %i\n" % idx)
+            idx += 1
+            for i in range(256):
+                if (i & 15) != 15:
+                    f.write("%x " % maskPix[i])
+                else:
+                    f.write("%x\n" % maskPix[i])
+            f.write("\n")
+    f.close()
     # all done!
-    print "Tileset %s generated from image %s, with %i tiles, containing %i unique colors" % (tileset_fname, ImageFilename, idx, len(NewPalette))
+    print "Tileset %s generated from image %s, with %i tiles, containing %i unique colors" % (tileset_fname, ImageFilename, len(TileList), len(NewPalette))
+    print "Collision mask %s generated from image %s, with %i mask bitmaps" % (maskset_fname, MaskFilename or "N/A", len(MaskList))
 
 def GenerateTilemap(leveldesc_fname, tileset_path, tilemap_fname):
     # parse tileset description file
@@ -816,13 +962,14 @@ if __name__ == "__main__":
         sys.exit(2)
     elif modeIdx == 1:
         # gentileset
-        if len(sys.argv) != 5:
+        if len(sys.argv) != 6:
             print "****Error: wrong number of arguments!"
             PrintUsage()
         tiledesc_fname = sys.argv[2]
         palette_fname = sys.argv[3]
         tileset_fname = sys.argv[4]
-        GenerateTileset(tiledesc_fname, palette_fname, tileset_fname)
+        maskset_fname = sys.argv[5]
+        GenerateTileset(tiledesc_fname, palette_fname, tileset_fname, maskset_fname)
     elif modeIdx == 2:
         # gentilemap
         if len(sys.argv) != 5:
