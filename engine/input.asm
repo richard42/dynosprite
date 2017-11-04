@@ -177,6 +177,8 @@ AudioNotRunning@
             sta         <Input_Buttons
             rts
 
+ IFDEF ANALOG_JOYSTICK
+
 ***********************************************************
 * Input_ReadStateAnalog4bit
 *   This function is called to update the global state variables with the current status
@@ -451,6 +453,8 @@ FoundResult@                                    * B contains the analog axis val
             stb         $FF20                   * restore the previous DAC value (for audio)
             andcc       #$AF                    * re-enable interrupts
             puls        a,pc
+
+ ENDC * ANALOG_JOYSTICK
 
 ***********************************************************
 * Input_ScanKeyboardStateCurrent
