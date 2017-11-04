@@ -38,7 +38,9 @@
 * - Tilesets (TILES.DAT)
 *   - For each tileset:
 *     - palette (32 bytes, 16 CMP + 16 RGB)
+*     - compressed collision table (raw size is one byte per tile)
 *     - compressed tile data (raw size is 128 bytes per tile)
+*     - compressed collision mask data (raw size is 128 bytes per mask)
 * - Level-specific data (LEVELS.DAT)
 *   - For each level:
 *     - Level Directory:
@@ -79,6 +81,7 @@
 *   - For each tileset:
 *     - tileset number                             (char)
 *     - total number of tiles                      (char)
+*     - total number of collision masks            (char)
 *     - compressed tile data size in bytes         (short)
 * - Level directory
 *   - Total # of levels
@@ -314,6 +317,7 @@ NumObjects              rmb     1
 GDT         STRUCT
 TilesetNum              rmb     1
 NumTiles                rmb     1
+NumMasks                rmb     1
 DiskSize                rmb     2
             ENDSTRUCT
 

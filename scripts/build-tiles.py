@@ -31,12 +31,15 @@ import sys
 from compression import *
 
 class Tileset:
-    def __init__(self, palfilename, tilefilename):
+    def __init__(self, palfilename, tilesetfilename, tilemaskfilename):
         self.palfilename = palfilename
-        self.tilefilename = tilefilename
-        self.number = int(tilefilename[7:9])
+        self.tilesetfilename = tilesetfilename
+        self.tilemaskfilename = tilemaskfilename
+        self.number = int(tilesetfilename[7:9])
         self.palettes = [ None, None ]
+        self.collisionTable = None
         self.tiles = [ ]
+        self.masks = [ ]
     def validate(self):
         palNames = [ "Composite", "RGB" ]
         # check palette arrays
@@ -57,11 +60,31 @@ class Tileset:
         for i in range(numTiles):
             tile = self.tiles[i]
             if len(tile) != 128:
-                print "****Error: invalid data length %i (should be 128) for tile %i in tileset '%s'" % (len(tile), i, self.tilefilename)
+                print "****Error: invalid data length %i (should be 128) for tile %i in tileset '%s'" % (len(tile), i, self.tilesetfilename)
                 return False
             for pixVal in tile:
                 if pixVal < 0 or pixVal > 255:
-                    print "****Error: invalid pixel value %i in tile %i in tileset '%s'" % (pixVal, i, self.tilefilename)
+                    print "****Error: invalid pixel value %i in tile %i in tileset '%s'" % (pixVal, i, self.tilesetfilename)
+                    return False
+        # check collision table
+        numMasks = len(self.masks)
+        if len(self.collisionTable) != numTiles:
+            print "****Error: Collision table length (%i) and number of tiles (%i) don't match in tileset '%s'" % (len(self.collisionTable), numTiles, self.tilesetfilename)
+            return False
+        for i in range(numTiles):
+            collVal = self.collisionTable[i]
+            if collVal < 0 or (collVal != 255 and collVal > numMasks):
+                print "****Error: Invalid value (%i) in Collision Table in tilemask '%s'" % (collVal, self.tilemaskfilename)
+                return False
+        # check each mask
+        for i in range(numMasks):
+            mask = self.masks[i]
+            if len(mask) != 128:
+                print "****Error: invalid data length %i (should be 128) for mask %i in tilemask '%s'" % (len(mask), i, self.tilemaskfilename)
+                return False
+            for pixVal in mask:
+                if pixVal < 0 or pixVal > 255:
+                    print "****Error: invalid pixel value %i in mask %i in tilemask '%s'" % (pixVal, i, self.tilemaskfilename)
                     return False
         return True
 
@@ -98,12 +121,16 @@ if __name__ == "__main__":
     tilesets = []
     for tilesetprefix in setnames:
         tilesetfilename = "tileset%s.txt" % tilesetprefix
+        tilemaskfilename = "tilemask%s.txt" % tilesetprefix
         palettefilename = "palette%s.txt" % tilesetprefix
         if not os.path.exists(os.path.join(gfxdir, palettefilename)):
             print "****Error: Matching palette file '%s' not found!" % palettefilename
             sys.exit(1)
+        if not os.path.exists(os.path.join(gfxdir, tilemaskfilename)):
+            print "****Error: Matching tilemask file '%s' not found!" % tilemaskfilename
+            sys.exit(1)
         mode = None
-        curSet = Tileset(palettefilename, tilesetfilename)
+        curSet = Tileset(palettefilename, tilesetfilename, tilemaskfilename)
         # load palettes
         f = open(os.path.join(gfxdir, palettefilename), "r").read()
         matrix = [ ]
@@ -151,6 +178,32 @@ if __name__ == "__main__":
             if len(matrix) == 128:
                 curSet.tiles.append(matrix)
                 matrix = [ ]
+        # load masks
+        f = open(os.path.join(gfxdir, tilemaskfilename), "r").read()
+        matrix = [ ]
+        for line in f.split("\n"):
+            # remove comments and whitespace from line
+            pivot = line.find("*")
+            if pivot != -1:
+                line = line[:pivot]
+            line = line.strip()
+            if len(line) < 1:
+                continue
+            # handle collision table
+            if curSet.collisionTable is None:
+                curSet.collisionTable = [ int(n.strip()) for n in line.split(",") ]
+                continue
+            # handle tile mask values (hex)
+            pix = "".join(line.split())
+            if (len(pix) & 1) == 1:
+                print "****Error: invalid tile mask line length (%i) in tilemask '%s'" % (len(pix), tilemaskfilename)
+                sys.exit(1)
+            for i in range(0, len(pix), 2):
+                v = int(pix[i:i+2], 16)
+                matrix.append(v)
+            if len(matrix) == 128:
+                curSet.masks.append(matrix)
+                matrix = [ ]
         # validate this tileset
         if not curSet.validate():
             sys.exit(1)
@@ -169,9 +222,14 @@ if __name__ == "__main__":
             for i in range(16):
                 f.write(chr(pal[i]))
         rawData = ""
+        for i in range(len(curSet.collisionTable)):
+            rawData += chr(curSet.collisionTable[i])
         for tile in curSet.tiles:
             for i in range(128):
                 rawData += chr(tile[i])
+        for mask in curSet.masks:
+            for i in range(128):
+                rawData += chr(mask[i])
         comp = Compressor(rawData)
         zipData = comp.Deflate(bPrintInfo=False, bUseGzip=True)
         compressedTilesetLength.append(len(zipData))
@@ -183,11 +241,13 @@ if __name__ == "__main__":
     s = str(len(tilesets))
     f.write((" " * 24) + "fcb     " + s + (" " * (16 - len(s))) + "* number of tilesets\n")
     for i in range(len(tilesets)):
-        f.write((" " * 24) + "* " + tilesets[i].tilefilename + "\n")
+        f.write((" " * 24) + "* " + tilesets[i].tilesetfilename + "\n")
         s = str(tilesets[i].number)
         f.write((" " * 24) + "fcb     " + s + (" " * (16-len(s))) + "* tileset number\n")
         s = str(len(tilesets[i].tiles))
         f.write((" " * 24) + "fcb     " + s + (" " * (16-len(s))) + "* number of tiles in tileset\n")
+        s = str(len(tilesets[i].masks))
+        f.write((" " * 24) + "fcb     " + s + (" " * (16-len(s))) + "* number of masks in tilemask\n")
         s = str(compressedTilesetLength[i])
         f.write((" " * 24) + "fdb     " + s + (" " * (16-len(s))) + "* compressed tileset size on disk in bytes\n")
     f.close()

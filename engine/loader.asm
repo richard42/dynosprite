@@ -264,17 +264,23 @@ FoundTileset1@
             adca        #0
             INCREMENT_D
             std         Ldr_SectorsToLoad
-            lda         GDT.NumTiles,x          * number of tiles in this set
-            sta         <Gfx_BkgrndBlockCount
-            lsra                                * 64 tiles per page, so shift right by 6
-            lsra
-            lsra
-            lsra
-            lsra
-            lsra
-            inca                                * A is number of pages to allocate
-            sta         <Gfx_BkgrndBlockPages
+            ldb         GDT.NumTiles,x          * number of background pixel tiles in this set
+            stb         <Gfx_BkgrndBlockCount
+            ldb         GDT.NumMasks,x          * number of collision mask tiles in this set
+            stb         <Gfx_BkgrndMaskCount
             clra
+            addb        <Gfx_BkgrndBlockCount
+            adca        #0
+            lsra                                * 64 tiles per page, so shift right by 6
+            rorb
+            lsrb
+            lsrb
+            lsrb
+            lsrb
+            lsrb
+            incb                                * B is number of pages to allocate
+            stb         <Gfx_BkgrndBlockPages
+            * don't need to "clra" because it must be zero after "lsra" above
 AllocTilesetPages@
             pshs        a
             adda        #VH_BKTILES
@@ -513,7 +519,7 @@ AllGroupsLoaded@
             * close the OBJECTS.DAT file
             jsr         Disk_FileClose
             * initialize the Objects with the OIT
-            lda         #VH_BKTILES             * map the page with OIT table into $4000
+            lda         #VH_BKTILES             * map the (temporary) page for OIT table into $4000
             ldb         #2
             jsr         MemMgr_MapBlock
             ldx         #$4000
@@ -537,6 +543,7 @@ FindTileset2@
             leax        sizeof{GDT},x
             bra         FindTileset2@
 FoundTileset2@
+            * load the (uncompressed) palettes
             ldy         #32
             ldu         #Gfx_Palette_CMP_RGB
             pshs        x
@@ -544,12 +551,22 @@ FoundTileset2@
             ldx         ,s
             ldd         GDT.DiskSize,x          * D is the number of compressed bytes in this tileset
             jsr         Decomp_Init_Stream      * set up DEFLATE decoder
+            * reserve space on the heap for collision mask table, and load the (compressed) table
+            clra
+            ldb         <Gfx_BkgrndBlockCount   * D is total number of bytes to reserve
+            jsr         MemMgr_Heap_Allocate
+            stx         <Gfx_CollisionTablePtr
+            tfr         d,y                     * Y is number of (uncompressed) bytes to read from zip stream
+            tfr         x,u                     * U is pointer to store loaded data
+            jsr         Decomp_Read_Stream
+            * load the tileset and tilemask blocks
             puls        x
             lda         GDT.NumTiles,x
             clrb
-            lsra
-            rorb                                * D is number of tileset bytes to load
-            tfr         d,y
+            adda        GDT.NumMasks,x
+            rora
+            rorb
+            tfr         d,y                     * Y is number of tileset bytes to load
             lda         #VH_BKTILES
 TilesetLoadLoop@
             pshs        a,y
@@ -1104,6 +1121,9 @@ FreeTilemapPages@
             bne         FreeTilemapPages@
             clr         <Gfx_BkgrndMapPages
             * 2. Then, free all of the heap blocks allocated
+            * Free the collision table
+            ldx         <Gfx_CollisionTablePtr
+            jsr         MemMgr_Heap_FreeLast
             *    Free the Objects' state data
             jsr         Obj_Uninit_Objects
             *    For each sprite/object group, free the Object and Sprite Descriptor Tables

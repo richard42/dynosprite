@@ -46,12 +46,13 @@
 The BASIC RAM page 0 contains BASIC data frame $0000-$0E00, followed by the game directories, followed by the heap, which grows upwards to $1FFF.
 
 Order and contents of data stored on heap (loaded independently for each level):
- 1. Current Object Table     (16 bytes/object)
- 2. Sprite Group Table       (10 bytes/group)
+ 1. Current Object Table       (16 bytes/object)
+ 2. Sprite Group Table         (10 bytes/group)
  3. NumGroups *
     a. Sprite Descriptor Table (16 bytes/sprite)
     b. Object Descriptor Table (16 bytes/object)
- 4. Object State Data block  ( ? bytes/object)
+ 4. Object State Data block    ( ? bytes/object)
+ 5. Collision Mask Table       ( 1 byte/background tile)
  ? Rowcrop tables           (16 bytes/sprite + 12 bytes/row)
 
 

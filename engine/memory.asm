@@ -56,12 +56,12 @@ VH_HIGHROM      EQU     5                       * Top 8k of cartridge ROM space 
 
 VH_SPRERASE     EQU     6                       * Sprite background pixels
 VH_LVLOBJCODE   EQU     7                       * Level and object handling code page
-VH_BKTILES      EQU     8                       * background block texture data (max 4 8k pages)
-VH_BKMAP        EQU     12                      * background tilemap (max 8 8k pages)
-VH_ZIPDATA      EQU     20                      * decompressor tables and large state data (one page)
-VH_ZIPBUF       EQU     21                      * decompressed data buffer (max 5 8k pages)
-VH_SOUNDDATA    EQU     26                      * audio waveform pages (max 8 8k pages)
-VH_SPRCODE      EQU     34                      * sprite draw/erase code pages
+VH_BKTILES      EQU     8                       * background block texture data (max 8 8k pages)
+VH_BKMAP        EQU     16                      * background tilemap (max 8 8k pages)
+VH_ZIPDATA      EQU     24                      * decompressor tables and large state data (one page)
+VH_ZIPBUF       EQU     25                      * decompressed data buffer (max 5 8k pages)
+VH_SOUNDDATA    EQU     30                      * audio waveform pages (max 8 8k pages)
+VH_SPRCODE      EQU     38                      * sprite draw/erase code pages
 
 ***********************************************************
 * MemMgr_Init
