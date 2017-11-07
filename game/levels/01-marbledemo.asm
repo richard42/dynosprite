@@ -471,6 +471,8 @@ Level_CalculateBkgrndNewXY
             lda         <Input_Buttons
             anda        #Joy1Button1
             bne         >
+            * pop the return address off the stack, because we will never return from this function
+            leas        2,s
             lda         #1
             jmp         Ldr_Jump_To_New_Level
             *    update X coordinate based on joystick
