@@ -128,8 +128,6 @@ beginframe
             sta         $FFA0                   * this contains object tables
             lda         <MemMgr_VirtualTable+VH_SPRERASE
             sta         $FFA6                   * Map sprite erase data to $C000
-            lda         <MemMgr_VirtualTable+VH_LVLOBJCODE
-            sta         $FFA3                   * Map the Level/Object code page to $6000
             ldx         <Obj_CurrentTablePtr
             lda         <Obj_NumCurrent
             beq         DrawObjDone@
@@ -142,6 +140,8 @@ DrawObjLoop@
             ldb         ODT.drawType,u
             bne         >
             * custom drawing function
+            lda         <MemMgr_VirtualTable+VH_LVLOBJCODE
+            sta         $FFA3                   * Map the Level/Object code page to $6000
             jsr         [ODT.draw,u]
             bra         ThisObjDrawn@
 !           cmpb        #1
