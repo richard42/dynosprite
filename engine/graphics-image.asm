@@ -181,7 +181,7 @@ Img_FadeOut
 !           ldx         #Img_FadeOutTable
             lsla
             ldu         a,x                     * U is address of fade-out routine to jump to
-            ldd         $FFA2                   * save previous value of page map to restore after the fade
+            ldd         $FFA3                   * save previous value of page map to restore after the fade
             std         RestorePageMap@+1
             ldd         #0                      * get memory address of top-left pixel in screen
             jsr         Gfx_GetPixelAddress_Front   * (A=page number, Y=offset)
@@ -191,7 +191,7 @@ Img_FadeOut
             jsr         ,u
 RestorePageMap@
             ldd         #0                      * SMC: page mapping value is written by code above
-            std         $FFA2
+            std         $FFA3
             rts
 
 Img_FadeOutTable        fdb     Img_FadeOut0
@@ -235,7 +235,7 @@ ColLoop2@
             bne         ColLoop2@
             leay        -160,y
 SkipFGLine@
-            ldb         1,s                     * B is address of next 8k page for start of window
+            ldb         1,s                     * B is address of second 8k page in our image window
             leay        19*256,y                * move forward 19 rows
             cmpy        #$8000
             blo         >
@@ -247,9 +247,10 @@ SkipFGLine@
 !           decb                                * B is address of first 8k page in our image window
             cmpb        2,s
             blo         RowLoop@
+            bhi         >
             cmpy        3,s
             blo         RowLoop@
-            inc         ,s                      * go back to the top of the image, and advance the row counter by 1
+!           inc         ,s                      * go back to the top of the image, and advance the row counter by 1
             lda         ,s
             cmpa        #20
             blo         >
@@ -394,9 +395,10 @@ SkipFGLine@
 !           decb                                * B is address of first 8k page in our image window
             cmpb        2,s
             blo         RowLoop@
+            bhi         >
             cmpy        3,s
             blo         RowLoop@
-            inc         ,s                      * go back to the top of the image, and advance the row counter by 1
+!           inc         ,s                      * go back to the top of the image, and advance the row counter by 1
             lda         ,s
             cmpa        #20
             blo         >
