@@ -1015,3 +1015,136 @@ RC_leau_bkgrndMapWidth2
             clr         <rr_TexRowOffset        * set TexRowOffset to 0 for subsequent blocks (we will always start at top)
             jmp         DrawBlockLoopY_Partial@
 
+***********************************************************
+* Gfx_CollisionTestPoint:
+*   This function takes an X,Y global coordinate relative to the background map, and finds the Collision Mask
+*   value from the collision mask tile at that location. This is used to handle background collisions with objects
+*   moving on the playfield.
+*
+* - IN:      X = global X coordinate
+*            Y = global Y coordinate
+* - OUT:     A = collision mask value (0-15) at the given input location
+*                bit 3 = cannot move down
+*                bit 2 = cannot move up
+*                bit 1 = cannot move right
+*                bit 0 = cannot move left
+* - Trashed: A,B,X,Y,U
+***********************************************************
+Gfx_CollisionTestPoint
+            pshs        y,x                     * save input coordinates
+            tfr         y,d                     * D is Y coordinate (maximum value should be 1087, 68*16-1)
+            lsra
+            rorb
+            lsra
+            rorb
+            lsra
+            rorb
+            lsrb                                * B is Y block index (0-67)
+            stb         <MultYLow@+1,PCR
+ IFDEF DEBUG
+            cmpd        <Gfx_BkgrndMapHeight
+            blo         >
+            swi                                 * Error: input Y coordinate is outside of tilemap bounds
+ ENDC
+            * do 16x8 multiply of Y block index with Map Width
+!           lda         <Gfx_BkgrndMapWidth
+            mul
+            stb         <AddHighByte@+1,PCR
+MultYLow@
+            ldb         #0                      * SMC: load Y block index (0-67)
+            lda         <Gfx_BkgrndMapWidth+1
+            mul
+AddHighByte@
+            adda        #0                      * SMC: D is Y block index * Map Width
+            std         <SumBlockMapIdx@+1,PCR
+            tfr         x,d                     * D is X coordinate (maximum value is 32,000-1)
+            lsra
+            rorb
+            lsra
+            rorb
+            lsra
+            rorb
+            lsra
+            rorb                                * D is X block index (0-2047)
+ IFDEF DEBUG
+            cmpd        <Gfx_BkgrndMapWidth
+            blo         >
+            swi                                 * Error: input X coordinate is outside of tilemap bounds
+ ENDC
+SumBlockMapIdx@
+!           addd        #0                      * SMC: D is Final BlockMap Index (Y * MapWidth + X)
+            std         <LoadTileBlockIdx@+1,PCR
+            lsra                                * get page number in the background tilemap
+            lsra
+            lsra
+            lsra
+            lsra
+            adda        #VH_BKMAP               * A is virtual handle of backgroup tilemap page to map into $8000
+            ldb         #4
+            jsr         MemMgr_MapBlock
+LoadTileBlockIdx@
+            ldd         #0                      * SMC: D is Final BlockMap Index (Y * MapWidth + X)
+            anda        #$1F                    * D is page offset into tilemap ($0000-$1FFF)
+            ora         #$80                    * D is memory address of tile block to read
+            tfr         d,x
+            lda         ,x                      * A is the block index of the tile block at the given location (0-254)
+ IFDEF DEBUG
+            cmpa        <Gfx_BkgrndBlockCount
+            blo         >
+            swi                                 * Error: Tile index from tilemap is greater than number of tile textures
+ ENDC
+!           ldx         <Gfx_CollisionTablePtr  * X is pointer to collision table in the heap
+            lda         a,x                     * A is the Collision Table value for this background tile (0 is empty, 255 is solid)
+            bne         NotEmpty@
+            leas        4,s                     * pop input coordinates from stack
+            rts                                 * tile is empty, collision mask is already 0
+NotEmpty@
+            cmpa        #255
+            bne         NotSolid@
+            lda         #15                     * tile is solid, load collision mask value of 15
+            leas        4,s                     * pop input coordinates from stack
+            rts
+NotSolid@
+            deca                                * A is an index into the collision tile array
+ IFDEF DEBUG
+            cmpa        <Gfx_BkgrndMaskCount
+            blo     >
+            swi                                 * Error: Tilemask index value in Collision Table is greater than number of mask textures
+ ENDC
+!           clrb
+            adda        <Gfx_BkgrndBlockCount   * we need to add the total number of background tiles to get an index into the
+            rora                                * complete tile array. The mask tiles come after the background tiles
+            rorb                                * D is an index into the background tile data buffer (128 bytes per tile)
+            std         <GetMaskDataAddr@+1,PCR
+            lsra                                * get page number in the tile texture data buffer
+            lsra
+            lsra
+            lsra
+            lsra
+            adda        #VH_BKTILES             * A is virtual handle of background tile texture page to map into $A000
+            ldb         #5
+            jsr         MemMgr_MapBlock
+GetMaskDataAddr@
+            ldd         #0                      * SMC: D is index into the background tile data buffer
+            anda        #$1F                    * D is page offset into tile texture page ($0000-$1FFF)
+            ora         #$A0                    * D is memory address of tile block to read
+            tfr         d,x
+            ldb         3,s                     * B is low byte of global Y coordinate
+            andb        #15
+            lslb
+            lslb
+            lslb                                * add 8 bytes per Y row in the block
+            abx
+            ldb         1,s                     * B is the low byte of the global X coordinate
+            andb        #15
+            lsrb                                * add 1 byte per two X columns in the block
+            lda         b,x                     * A is the byte from the tilemask containing the selected point
+            bcs         >
+            lsra                                * global X coordinate is even, so desired mask value is in the high 4 bits
+            lsra
+            lsra
+            lsra
+!           anda        #15                     * A is the output collision mask value
+            leas        4,s                     * pop input coordinates from stack
+            rts
+
