@@ -123,8 +123,8 @@ DivLoop_NoBorrow@
 ***********************************************************
 * Math_Multiply16by16:
 *
-* - IN:      Math__16, Math_Divisor_16
-* - OUT:     Math_Quotient_16, Math_Remainder_16
+* - IN:      Math_Multiplicand_16, Math_Multiplier_16
+* - OUT:     Math_Product_32
 * - Trashed: A,B
 ***********************************************************
 

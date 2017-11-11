@@ -145,7 +145,7 @@ rowcrop                 rmd     1
 *      offsetX        2        1   Offset in bytes to add to global X coordinate to draw sprite at hotspot
 *      offsetY        3        1   Offset in lines to add to global Y coordinate to draw sprite at hotspot
 *       cpLeft        4        1   virtual page number for drawLeft function
-*      cpRight        5        1   virtual page number for drawRight function
+*      cpRight        5        1   virtual page number for drawRight function or 0
 *      cpErase        6        1   virtual page number for erase function
 *   storeBytes        7        2   Number of bytes to reserve for storing background pixels
 *     drawLeft        9        2   Pointer to ASM function for storing/drawing
