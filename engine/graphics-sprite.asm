@@ -162,19 +162,18 @@ SpriteIdxOkay@
             addd        COB.sprPtr,x
             tfr         d,u                     * now U points to SDT entry for sprite to draw
             * decide which function (left or right) to use (DrawLRParity = SpriteGlobalX & 1)
+            tst         SDT.cpRight,u
+            beq         DrawLeft@               * if there is no single pixel positioning, we must use the DrawLeft function
             ldb         COB.globalX+1,x
             andb        #1
             bne         DrawRight@
+DrawLeft@
             lda         SDT.cpLeft,u
             ldb         #SDT.drawLeft
             bra         LRDone@
 DrawRight@
             lda         SDT.cpRight,u
- IFDEF DEBUG
-            bne         >
-            swi                                 * error: odd X position coordinate for sprite without SinglePixelPosition
- ENDC
-!           ldb         #SDT.drawRight
+            ldb         #SDT.drawRight
 LRDone@
             stb         <gfx_DrawLeftOrRight
             * map the code page which contains the drawing function
