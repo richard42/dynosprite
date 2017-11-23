@@ -1028,7 +1028,7 @@ RC_leau_bkgrndMapWidth2
 *                bit 2 = cannot move up
 *                bit 1 = cannot move right
 *                bit 0 = cannot move left
-* - Trashed: A,B,X,Y,U
+* - Trashed: A,B,X,Y
 ***********************************************************
 Gfx_CollisionTestPoint
             pshs        y,x                     * save input coordinates
