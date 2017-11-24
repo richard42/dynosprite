@@ -521,6 +521,7 @@ def GenerateTileset(tiledesc_fname, palette_fname, tileset_fname, maskset_fname)
         print "****Error: image file '%s' for tileset doesn't exist!" % ImageFilename
         sys.exit(3)
     MaskFilename = None
+    MaskList = [ ]
     if info.maskFilename != "":
         MaskFilename = os.path.join(os.path.dirname(tiledesc_fname), info.maskFilename)
     if MaskFilename is not None and os.path.exists(MaskFilename) == False:
@@ -750,6 +751,7 @@ def GenerateTileset(tiledesc_fname, palette_fname, tileset_fname, maskset_fname)
                     f.write("%x\n" % maskPix[i])
             f.write("\n")
     f.close()
+
     # all done!
     print "Tileset %s generated from image %s, with %i tiles, containing %i unique colors" % (tileset_fname, ImageFilename, len(TileList), len(NewPalette))
     print "Collision mask %s generated from image %s, with %i mask bitmaps" % (maskset_fname, MaskFilename or "N/A", len(MaskList))
