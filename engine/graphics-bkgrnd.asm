@@ -120,7 +120,7 @@ Gfx_GetVertStart
 *
 * - IN:      
 * - OUT: 
-* - Trashed: A,B,X,Y
+* - Trashed: A,B,X,Y,U
 ***********************************************************
 
 Gfx_SetInitialAperature

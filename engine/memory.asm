@@ -226,7 +226,7 @@ MemMgr_Heap_FreeLast
 * - IN:      X = Upper 16 (of 19) bits of lowest address of aperature
 *            Y = Upper 16 (of 19) bits of highest address of aperature
 * - OUT: 
-* - Trashed: A,B,X,Y
+* - Trashed: A,B,X,Y,U
 ***********************************************************
 
 MemMgr_InitializeGfxAperature
@@ -402,7 +402,7 @@ VirtualMapOkay@
 * MemMgr_CopyPhysicalBlock
 * - IN:      A = source block number, B = destination block number
 * - OUT: 
-* - Trashed: A,B,X,Y,W
+* - Trashed: A,B,X,Y,U,W
 ***********************************************************
 
 MemMgr_CopyPhysicalBlock
@@ -415,48 +415,60 @@ SrcBlkOkay@
             cmpb        #64
             blo         DstBlkOkay@
             swi
- ENDC
 DstBlkOkay@
-            ldx         $FFA5                   * mapped blocks for $A000 - $E000
-            pshs        x
-            sta         $FFA5
-            stb         $FFA6
+ ENDC
+ IFEQ CPU-6309
+            ldu         $FFA5                   * mapped blocks for $A000 - $E000
+            std         $FFA5
             ldx         #$A000
             ldy         #$C000
- IFEQ CPU-6309
             ldw         #$2000
             tfm         x+,y+
+            stu         $FFA5
+            rts
  ELSE
+            tfr         d,u
+            lda         $FFA0
+            ldb         $FFA5
+            pshs        d
+            tfr         u,d
+            sta         $FFA0
+            stb         $FFA5
+            ldu         #$C000                  * 3
+            ldy         #$2000                  * 4
 CopyLoop@
-            ldd         ,x++
-            std         ,y++
-            ldd         ,x++
-            std         ,y++
-            cmpx        #$C000
-            bne         CopyLoop@
- ENDIF
-            puls        x
-            stx         $FFA5
+            ldx         -2,y                    * 6
+            ldd         -4,y                    * 6
+            pshu        x,d                     * 9
+            ldx         -6,y                    * 6
+            ldd         -8,y                    * 6
+            pshu        x,d                     * 9
+            ldx         -10,y                   * 6
+            ldd         -12,y                   * 6
+            pshu        x,d                     * 9
+            ldx         -14,y                   * 6
+            ldd         -16,y                   * 6
+            pshu        x,d                     * 9
+            ldx         -18,y                   * 6
+            ldd         -20,y                   * 6
+            pshu        x,d                     * 9
+            ldx         -22,y                   * 6
+            ldd         -24,y                   * 6
+            pshu        x,d                     * 9
+            ldx         -26,y                   * 6
+            ldd         -28,y                   * 6
+            pshu        x,d                     * 9
+            ldx         -30,y                   * 6
+            ldd         -32,y                   * 6
+            pshu        x,d                     * 9
+            leay        -32,y                   * 5
+            bne         CopyLoop@               * 3
+            puls        d
+            sta         $FFA0
+            stb         $FFA5
             rts
 
-***********************************************************
-* MemMgr_CopyVirtualBlock
-* - IN:     A = source virtual block handle, B = destination physical block number
-* - OUT: 
-* - Trashed: A,B,X,Y
-***********************************************************
-
-MemMgr_CopyVirtualBlock
- IFDEF DEBUG
-            * check input conditions
-            cmpa        #64
-            blo         HandleOkay@
-            swi
- ENDC
-HandleOkay@
-            ldx         #MemMgr_VirtualTable
-            lda         a,x                     * A is physical 512k block for this virtual block handle
-            bra         MemMgr_CopyPhysicalBlock
+ ENDIF
 
 ***********************************************************
 * MemMgr_MoveVirtualBlock
@@ -466,7 +478,7 @@ HandleOkay@
 *
 * - IN:      A=Virtual block handle, B=(0 to prefer low physical address, != 0 to prefer high)
 * - OUT:     B=Previous physical block #, Y=#MemMgr_PhysicalMap
-* - Trashed: A,B,X,Y
+* - Trashed: A,B,X,Y,U
 ***********************************************************
 VirtHandle@     rmb     1
 OldPhysBlk@     rmb     1
@@ -546,7 +558,7 @@ MMULoopTail@
 * - IN:      X = Upper 16 bits of lowest address of new aperature
 *            Y = Upper 16 bits of highest address of new aperature
 * - OUT: 
-* - Trashed: A,B,X,Y
+* - Trashed: A,B,X,Y,U
 ***********************************************************
 
 MemMgr_MoveGfxAperature
