@@ -140,7 +140,7 @@ Gfx_SpriteDrawSimple
  IFDEF DEBUG
             lda         COB.groupIdx,x
             ldy         <Gfx_SpriteGroupsPtr
-            ldb         #Gfx_NumSpriteGroups
+            ldb         <Gfx_NumSpriteGroups
 !           cmpa        SGT.groupIdx,y
             beq         FoundSpriteGroup@
             leay        sizeof{SGT},y
