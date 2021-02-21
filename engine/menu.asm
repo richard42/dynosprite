@@ -113,15 +113,29 @@ Menu_RunMain
             tfr         d,u
             pshs        u
             ldx         #Menu_CMP
-            ldb         #5+10*4
+            tst         <Gfx_MonitorIsRGB
+            beq         >
+            ldx         #Menu_RGB
+!           ldb         #5+10*4
             lda         #120
             jsr         Gfx_DrawTextLine_Back
             ldx         #Menu_Joystick
-            ldb         #5+10*4
+            tst         <Input_UseKeyboard
+            beq         >
+            ldx         #Menu_Keyboard
+!           ldb         #5+10*4
             lda         #136
             ldu         ,s
             jsr         Gfx_DrawTextLine_Back
+            ldx         #Menu_NoSound
+            tst         <Sound_OutputMode
+            bmi         SoundMenuInitTextDone@
+            bgt         >
             ldx         #Menu_Internal
+            bra         SoundMenuInitTextDone@
+!           ldx         #Menu_Orc90
+            ldx         #Menu_Internal
+SoundMenuInitTextDone@
             ldb         #5+8*4
             lda         #152
             puls        u
