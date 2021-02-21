@@ -301,6 +301,7 @@ class Sprite:
         self.originXcode = 0    # Index of pixel column in sprite which will be written into left pixel (MSB) of
                                 # the byte to which the destination pointer is pointing when DrawLeft is called.
                                 # When DrawRight is called, this pixel will be written into the right (LSB) of the destination byte
+        self.chunkHint = sys.maxsize # Chunk to process rows - this is a compromise between performance and 
         self.funcErase = AsmStream(f"Erase_{name}")
         self.funcDraw = [ None, None ]
 
@@ -320,6 +321,8 @@ class Sprite:
             elif key == "hotspot":
                 coords = [ int(v) for v in value[1:-1].split(',') ]
                 self.hotspot = (coords[0], coords[1])
+            elif key == "chunkhint":
+                self.chunkHint = int(value)
             else:
                 print(f"illegal line in Sprite '{self.name}' definition: {line}")
         else:
@@ -748,10 +751,9 @@ class Sprite:
 
         # in block of n commands, exhaustively search all permutations of store/write commands, and return best result
         # we choose n = 12 as a compromise for compile time performance and runtime performance
-        n = 12
         layoutDict = { 1:[], 2:[], 4:[] }
-        results = [self.Permute6309StoreLayouts(regState, layoutDict, byteOffCmdList[ii:ii + n], 4)
-                      for ii in range(0, len(byteOffCmdList), n)]
+        results = [self.Permute6309StoreLayouts(regState, layoutDict, byteOffCmdList[ii:ii + self.chunkHint], 4)
+                      for ii in range(0, len(byteOffCmdList), self.chunkHint)]
         return_value = results[0]
         for ii in range(1, len(results)):
             return_value += results[ii]

@@ -43,3 +43,12 @@ SinglePixelPosition=True
 Location=74,85
 SinglePixelPosition=True
 
+* Example large sprite - use ChunkHint to break up the processing of
+* the sprite in N byte chunks. This makes code generation faster at the
+* expense of inferior code generation. Anecdotally, n = 12 is a good
+* compromise.
+* [Super_Large_Sprite]
+* Location=1024,1024
+* SinglePixelPosition=True
+* ChunkHint=12
+

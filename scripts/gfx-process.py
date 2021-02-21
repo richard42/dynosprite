@@ -298,6 +298,7 @@ class SpriteInfo:
         self.singlepixelpos = False
         self.pixArray = [ ]
         self.hotspot = [0, 0]
+        self.chunkHint = sys.maxsize
 
 class SpriteGroupInfo:
     def __init__(self):
@@ -360,6 +361,8 @@ def parseSpriteDescription(descFilename):
                 else:
                     print(f"****Error: invalid boolean value for SinglePixelPosition parameter in line '{line}' in sprite description file '{descFilename}'")
                     sys.exit(2)
+            elif key == "chunkhint":
+                curSprite.chunkHint = int(value)
             else:
                 print(f"****Error: invalid sprite parameter definition '{line}' in sprite description file '{descFilename}'")
                 sys.exit(2)
@@ -922,6 +925,8 @@ def GenerateSprites(spritedesc_fname, palette_path, sprite_fname):
         f.write(f'Height = {len(sprite.pixArray)}\n')
         f.write(f'SinglePixelPosition = {str(sprite.singlepixelpos)}\n')
         f.write(f'Hotspot = ({sprite.hotspot[0]},{sprite.hotspot[1]})\n')
+        if (sprite.chunkHint < sys.maxsize):
+            f.write(f'ChunkHint = {sprite.chunkHint}\n')
         for pixLine in sprite.pixArray:
             f.write(' '.join([pixValMap[v] for v in pixLine]))
             f.write('\n')
