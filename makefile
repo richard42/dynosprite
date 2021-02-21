@@ -115,10 +115,12 @@ endif
 ifeq ($(CPU),6309)
   ASMFLAGS += --define=CPU=6309
   LOADERSRC += $(SRCDIR)/graphics-blockdraw-6309.asm
+  MAMESYSTEM = coco3h
 else
   CPU = 6809
   ASMFLAGS += --define=CPU=6809
   LOADERSRC += $(SRCDIR)/graphics-blockdraw-6809.asm
+  MAMESYSTEM = coco3
 endif
 ifeq ($(MAMEDBG), 1)
   MAMEFLAGS += -debug
@@ -151,7 +153,7 @@ clean:
 	rm -rf $(GENASMDIR) $(GENGFXDIR) $(GENOBJDIR) $(GENDISKDIR) $(GENLISTDIR)
 
 test:
-	$(EMULATOR) coco3h -flop1 $(TARGET) $(MAMEFLAGS) -window -waitvsync -resolution 640x480 -video opengl -rompath /mnt/terabyte/pyro/Emulators/firmware/
+	$(EMULATOR) $(MAMESYSTEM) -flop1 $(TARGET) $(MAMEFLAGS) -window -waitvsync -resolution 640x480 -video opengl -rompath /mnt/terabyte/pyro/Emulators/firmware/
 
 # build rules
 

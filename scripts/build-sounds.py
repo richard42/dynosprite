@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #********************************************************************************
 # DynoSprite - scripts/build-sounds.py
 # Copyright (c) 2014, Richard Goedeken
@@ -35,10 +35,10 @@ from compression import *
 #
 
 if __name__ == "__main__":
-    print "DynoSprite Sound Builder script"
+    print("DynoSprite Sound Builder script")
     # get input paths
     if len(sys.argv) != 4:
-        print "****Usage: %s <in_raw_folder> <out_cc3_folder> <out_asm_folder>" % sys.argv[0]
+        print(f"****Usage: {sys.argv[0]} <in_raw_folder> <out_cc3_folder> <out_asm_folder>")
         sys.exit(1)
     rawdir = sys.argv[1]
     cc3dir = sys.argv[2]
@@ -51,9 +51,9 @@ if __name__ == "__main__":
     numSounds = len(soundRawFiles)
     minNumber = min(soundRawNumbers)
     maxNumber = max(soundRawNumbers)
-    print "    Found %i sound files, numbered from %i to %i" % (numSounds, minNumber, maxNumber)
+    print(f"    Found {int(numSounds)} sound files, numbered from {int(minNumber)} to {int(maxNumber)}")
     # read raw sound data files and compress them
-    allCompSoundData = ""
+    allCompSoundData = b''
     allSoundSizes = [ ]
     for i in range(maxNumber+1):
         if i not in soundRawNumbers:
@@ -65,7 +65,7 @@ if __name__ == "__main__":
         rawPadding = rawLength & 255
         if rawPadding > 0:
             rawPadding = 256 - rawPadding
-        rawSoundData += chr(0x80) * rawPadding
+        rawSoundData += bytes((0x80,)) * rawPadding
         comp = Compressor(rawSoundData)
         compSoundData = comp.Deflate(bPrintInfo=False, bUseGzip=True)
         allCompSoundData += compSoundData
@@ -81,11 +81,11 @@ if __name__ == "__main__":
     f.write((" " * 24) + "fcb     " + s + (" " * (16 - len(s))) + "* number of sound waveforms\n")
     for i in range(maxNumber+1):
         if i not in soundRawNumbers:
-            f.write((" " * 24) + ("* Waveform: %02i - [empty]\n" % i))
+            f.write((" " * 24) + f"* Waveform: {int(i):02} - [empty]\n")
             f.write((" " * 24) + "fdb     " + "0,0\n")
             continue
         idx = soundRawNumbers.index(i)
-        f.write((" " * 24) + ("* Waveform: %02i - %s\n" % (i, soundRawFiles[idx][8:-4])))
+        f.write((" " * 24) + f"* Waveform: {int(i):02} - {soundRawFiles[idx][8:-4]}\n")
         s = str(allSoundSizes[i][0])
         f.write((" " * 24) + "fdb     " + s + (" " * (16-len(s))) + "* Uncompressed size (bytes) of waveform\n")
         s = str(allSoundSizes[i][1])
