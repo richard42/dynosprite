@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #********************************************************************************
 # DynoSprite - scripts/build-object.py
 # Copyright (c) 2013, Richard Goedeken
@@ -27,6 +27,7 @@
 #********************************************************************************
 
 import os
+import re
 import sys
 from compression import *
 
@@ -43,36 +44,37 @@ class Group:
         self.rawData = None
     def parseInputs(self):
         # validate symbol tables
-        if not self.SprSymbols.has_key("NumberOfSprites"):
-            print "****Error: Missing NumberOfSprites in sprite group %i" % self.GrpNumber
+        if not 'NumberOfSprites' in self.SprSymbols:
+            print(f"****Error: Missing NumberOfSprites in sprite group {int(self.GrpNumber)}")
             sys.exit(1)
-        if not self.SprSymbols.has_key("SpriteDescriptorTable"):
-            print "****Error: Missing SpriteDescriptorTable in sprite group %i" % self.GrpNumber
+        if not 'SpriteDescriptorTable' in self.SprSymbols:
+            print(f"****Error: Missing SpriteDescriptorTable in sprite group {int(self.GrpNumber)}")
             sys.exit(1)
         if self.SprSymbols["SpriteDescriptorTable"] - self.SprSymbols["NumberOfSprites"] != 1:
-            print "****Error: SpriteDescriptorTable should immediately follow NumberOfSprites in sprite group %i" % self.GrpNumber
+            print(f"****Error: SpriteDescriptorTable should immediately follow NumberOfSprites in sprite group {int(self.GrpNumber)}")
             sys.exit(1)
-        if not self.ObjSymbols.has_key("NumberOfObjects"):
-            print "****Error: Missing NumberOfObjects in object group %i" % self.GrpNumber
+        if not 'NumberOfObjects' in self.ObjSymbols:
+            print(f"****Error: Missing NumberOfObjects in object group {int(self.GrpNumber)}")
             sys.exit(1)
-        if not self.ObjSymbols.has_key("ObjectDescriptorTable"):
-            print "****Error: Missing ObjectDescriptorTable in object group %i" % self.GrpNumber
+        if not 'ObjectDescriptorTable' in self.ObjSymbols:
+            print(f"****Error: Missing ObjectDescriptorTable in object group {int(self.GrpNumber)}")
             sys.exit(1)
         if self.ObjSymbols["ObjectDescriptorTable"] - self.ObjSymbols["NumberOfObjects"] != 1:
-            print "****Error: ObjectDescriptorTable should immediately follow NumberOfObjects in object group %i" % self.GrpNumber
+            print(f"****Error: ObjectDescriptorTable should immediately follow NumberOfObjects in object group {int(self.GrpNumber)}")
             sys.exit(1)
         # get number of sprites and objects in this group
         sdtStart = self.SprSymbols["SpriteDescriptorTable"]
         odtStart = self.ObjSymbols["ObjectDescriptorTable"]
-        self.numSprites = ord(self.SprRaw[sdtStart-1])
-        self.numObjects = ord(self.ObjRaw[odtStart-1])
-        print "    Found %i sprites and %i objects in group %i" % (self.numSprites, self.numObjects, self.GrpNumber)
+        self.numSprites = self.SprRaw[sdtStart-1]
+        self.numObjects = self.ObjRaw[odtStart-1]
+        print(f"    Found {int(self.numSprites)} sprites and {int(self.numObjects)} objects in group {int(self.GrpNumber)}")
         # validate length of raw data
         if len(self.SprRaw) != sdtStart + self.numSprites * 16:
-            print "****Error: group %i sprite raw code file length is wrong" % self.grpNumber
+            print(f"****Error: group {int(self.grpNumber)} sprite raw code file length is wrong")
             sys.exit(1)
         if len(self.ObjRaw) != odtStart + self.numObjects * 16:
-            print "****Error: group %i object raw code file length is wrong" % self.grpNumber
+            print("****Error: group {} object raw code file length is wrong: {} {}" \
+              .format(self.numObjects, len(self.ObjRaw), odtStart + self.numObjects * 16))
             sys.exit(1)
         # compress the sprite and object code, and generate output data for this group
         comp = Compressor(self.SprRaw[:sdtStart-1])
@@ -91,7 +93,7 @@ def SymbolExtract(listName):
     # parse input list and extract all global symbols
     bFoundSymTable = False
     SymDict = { }
-    f = open(listName, "r").read()
+    f = open(listName).read()
     for line in f.split("\n"):
         line = line.strip()
         # look for symbol table
@@ -103,6 +105,25 @@ def SymbolExtract(listName):
         if len(line) > 40 and line[0:4] == '[ G]' and line.find(".") == -1 and line.find("{") == -1:
             symdef = line[5:].split()
             SymDict[symdef[0]] = int(symdef[1], 16)
+
+    if bFoundSymTable:
+        return SymDict
+
+    symbol_parser = re.compile('^Symbol: ([^ ]+) ([^ ]+) = ([0-9A-F]+)$')
+    for line in f.split("\n"):
+        line = line.strip()
+        # look for symbol table
+        if not bFoundSymTable:
+            if line == "Symbol:":
+                bFoundSymTable = True
+
+        if not line.startswith('Symbol: '):
+            continue
+
+        # check this symbol
+        match = symbol_parser.match(line)
+        SymDict[match.group(1)] = int(match.group(3), 16)
+
     return SymDict
 
 #******************************************************************************
@@ -110,10 +131,10 @@ def SymbolExtract(listName):
 #
 
 if __name__ == "__main__":
-    print "DynoSprite Object Builder script"
+    print("DynoSprite Object Builder script")
     # get input paths
     if len(sys.argv) != 5:
-        print "****Usage: %s <in_raw_folder> <in_list_folder> <out_cc3_folder> <out_asm_folder>" % sys.argv[0]
+        print(f"****Usage: {sys.argv[0]} <in_raw_folder> <in_list_folder> <out_cc3_folder> <out_asm_folder>")
         sys.exit(1)
     rawdir = sys.argv[1]
     listdir = sys.argv[2]
@@ -133,15 +154,18 @@ if __name__ == "__main__":
     # make sure we have same # of files in each list
     numGroups = len(spriteRawFiles)
     if len(spriteListFiles) != numGroups or len(objectRawFiles) != numGroups or len(objectListFiles) != numGroups:
-        print "****Error: extra or missing sprite/object raw or list files in '%s'.  Make clean and try again" % rawdir
+        print(f"****Error: extra or missing sprite/object raw or list files in '{rawdir}'.  Make clean and try again")
+        print(f"  {int(len(spriteListFiles))} spriteList files found, {int(numGroups)} expected")
+        print(f"  {int(len(objectRawFiles))} object raw files found, {int(numGroups)} expected")
+        print(f"  {int(len(objectListFiles))} object list files found, {int(numGroups)} expected")
         sys.exit(1)
-    print "    Found %i sprite/object groups" % numGroups
+    print(f"    Found {int(numGroups)} sprite/object groups")
     # parse input files and create groups
     allGroups = [ ]
     for i in range(numGroups):
         grpNum = int(spriteRawFiles[i][6:8])
         if int(spriteListFiles[i][6:8]) != grpNum or int(objectRawFiles[i][6:8]) != grpNum or int(objectListFiles[i][6:8]) != grpNum:
-            print "****Error: mis-matched sprite/object group numbering in '%s'." % rawdir
+            print(f"****Error: mis-matched sprite/object group numbering in '{rawdir}'.")
             sys.exit(1)
         grp = Group(grpNum)
         grp.SprSymbols = SymbolExtract(os.path.join(listdir, spriteListFiles[i]))
@@ -162,7 +186,7 @@ if __name__ == "__main__":
     f.write((" " * 24) + "fcb     " + s + (" " * (16 - len(s))) + "* number of sprite/object groups\n")
     for grpIdx in range(numGroups):
         grp = allGroups[grpIdx]
-        f.write((" " * 24) + ("* Group %i: (%s, %s)" % (grp.GrpNumber, spriteRawFiles[grpIdx], objectRawFiles[grpIdx])) + "\n")
+        f.write((" " * 24) + f"* Group {int(grp.GrpNumber)}: ({spriteRawFiles[grpIdx]}, {objectRawFiles[grpIdx]})" + "\n")
         s = str(grp.GrpNumber)
         f.write((" " * 24) + "fcb     " + s + (" " * (16-len(s))) + "* Group number\n")
         s = str(len(grp.rawData))

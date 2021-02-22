@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #********************************************************************************
 # DynoSprite - scripts/symbol-extract.py
 # Copyright (c) 2013-2014, Richard Goedeken
@@ -34,14 +34,14 @@ import sys
 #
 
 if __name__ == "__main__":
-    print "Symbol Extractor Script"
+    print("Symbol Extractor Script")
     if len(sys.argv) != 3:
-        print "    Usage: %0 <input.lst> <output.asm>"
+        print("    Usage: %0 <input.lst> <output.asm>")
         sys.exit(1)
     # parse input list and extract all global symbols
     bFoundSymTable = False
     SymList = [ ]
-    f = open(sys.argv[1], "r").read()
+    f = open(sys.argv[1]).read()
     for line in f.split("\n"):
         line = line.strip()
         # look for symbol table
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     # write tile directory table to include in DynoSprite core
     f = open(sys.argv[2], "w")
     for sym in SymList:
-        f.write(sym[0]+ (" " * (36 - len(sym[0]))) + ("EQU $%04x" % sym[1]) + "\n")
+        f.write(sym[0]+ (" " * (36 - len(sym[0]))) + f"EQU ${sym[1]:04x}" + "\n")
     f.close()
 
 

@@ -1,19 +1,19 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #********************************************************************************
 # DynoSprite - scripts/build-readme.py
 # Copyright (c) 2013-2014, Richard Goedeken
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice, this
 #   list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -87,7 +87,7 @@ BASICPROG = """
 
 def GenerateReadme(textin, basout):
     # read the input text file
-    inLines = open(textin, "r").read().split("\n")
+    inLines = open(textin).read().split("\n")
     if inLines[-1] == "":
         inLines = inLines[:-1]
     # generate the output data lines
@@ -102,7 +102,7 @@ def GenerateReadme(textin, basout):
             padchar = line[1]
             line = line[3:]
             numpad = 32 - len(line)
-            halfpad = numpad / 2
+            halfpad = numpad // 2
             outLines.append((padchar * halfpad) + line.upper() + (padchar * (numpad-halfpad)))
             ListMode = False
             continue
@@ -135,7 +135,7 @@ def GenerateReadme(textin, basout):
     f.write(BASICPROG.replace("\n","\r").replace("#NUMLINES",str(len(outLines))))
     for idx in range(len(outLines)):
         #f.write('%i DATA "%s"\n' % (100 + idx * 10, outLines[idx]))
-        f.write('%i DATA "%s"\r' % (100 + idx * 10, outLines[idx]))
+        f.write(f'{int(100 + idx * 10)} DATA "{outLines[idx]}"\r')
     f.close()
 
 #******************************************************************************
@@ -143,10 +143,10 @@ def GenerateReadme(textin, basout):
 #
 
 if __name__ == "__main__":
-    print "DynoSprite README.BAS Builder script"
+    print("DynoSprite README.BAS Builder script")
     # get input paths
     if len(sys.argv) != 3:
-        print "****Usage: %s <in_readme_text> <out_readme_bas>" % sys.argv[0]
+        print(f"****Usage: {sys.argv[0]} <in_readme_text> <out_readme_bas>")
         sys.exit(1)
     textin = sys.argv[1]
     basout = sys.argv[2]

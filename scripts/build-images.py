@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #********************************************************************************
 # DynoSprite - scripts/build-images.py
 # Copyright (c) 2014, Richard Goedeken
@@ -39,8 +39,8 @@ from PIL import Image
 def GenerateCocoPalettes(ColorsUsed, ImagePalette):
     global CocoLuvByRGB, CocoLuvByCMP
     # copy the image palette to a Python object and add 2 extra colors at the end (black and white)
-    PalSize = len(ImagePalette) / 3
-    Palette444 = [ ord(ImagePalette[i]) for i in range(PalSize*3) ]
+    PalSize = len(ImagePalette) // 3
+    Palette444 = [ ImagePalette[i] for i in range(PalSize*3) ]
     Palette444.append(0)
     Palette444.append(0)
     Palette444.append(0)
@@ -136,8 +136,8 @@ def GetCompositeColor(palidx):
         contrast = 70
         saturation = 92
         brightness = -50
-        brightness += ((palidx / 16) + 1) * contrast
-        offset = (palidx % 16) - 1 + (palidx / 16)*15
+        brightness += ((palidx // 16) + 1) * contrast
+        offset = (palidx % 16) - 1 + (palidx // 16)*15
         r = math.cos(w*(offset +  9.2)) * saturation + brightness
         g = math.cos(w*(offset + 14.2)) * saturation + brightness
         b = math.cos(w*(offset + 19.2)) * saturation + brightness
@@ -188,7 +188,6 @@ def Vector3Distance(v1, v2):
     return diff[0]*diff[0] + diff[1]*diff[1] + diff[2]*diff[2]
 
 def ClosestColorOf16(LuvColor, CocoPalette, PaletteColorset):
-    global CocoLuvByRGB, CocoLuvByCMP
     BestIdx = None
     BestDist = -1
     for i in range(16):
@@ -241,11 +240,11 @@ def parseDescription(descFilename):
             elif key.lower() == "progresscolor":
                 curImage.bar = LuvColor
             else:
-                print "****Error: invalid key '%s' in line '%s' in file '%s'" % (key, line, descFilename)
+                print(f"****Error: invalid key '{key}' in line '{line}' in file '{descFilename}'")
                 sys.exit(1)
             continue
         # anything else is unexpected
-        print "****Error: invalid line '%s' in file '%s'" % (line, descFilename)
+        print(f"****Error: invalid line '{line}' in file '{descFilename}'")
         sys.exit(1)
     return ImageColorDict
 
@@ -255,16 +254,17 @@ def parseDescription(descFilename):
 
 if __name__ == "__main__":
     global CocoLuvByRGB, CocoLuvByCMP
-    print "DynoSprite Splash Image Builder script"
+    print("DynoSprite Splash Image Builder script")
     # get input paths
     if len(sys.argv) != 4:
-        print "****Usage: %s <in_png_folder> <out_cc3_folder> <out_asm_folder>" % sys.argv[0]
+        print(f"****Usage: {sys.argv[0]} <in_png_folder> <out_cc3_folder> <out_asm_folder>")
         sys.exit(1)
     imgdir = sys.argv[1]
     cc3dir = sys.argv[2]
     asmdir = sys.argv[3]
     # parse description file
     ImageColorDict = parseDescription(os.path.join(imgdir, "images.txt"))
+
     # make list of input image files found
     filelist = os.listdir(imgdir)
     imgPngFiles = [name for name in filelist if name[-4:].lower() == ".png"]
@@ -273,11 +273,11 @@ if __name__ == "__main__":
     numImages = len(imgPngFiles)
     minNumber = min(imgPngNumbers)
     maxNumber = max(imgPngNumbers)
-    print "    Found %i image files, numbered from %i to %i" % (numImages, minNumber, maxNumber)
+    print(f"    Found {numImages} image files, numbered from {minNumber} to {maxNumber}")
     # Build Luv palettes for all of the colors in the Coco's 64-color palette for RGB and Composite modes
     BuildCocoColors()
     # read input images, extract metadata, and compress them
-    allCompImageData = ""
+    allCompImageData = b''
     allImageSizes = [ ]     # each element is a tuple: (Width, Height, Compressed Bytes)
     for i in range(maxNumber+1):
         if i not in imgPngNumbers:
@@ -291,10 +291,10 @@ if __name__ == "__main__":
         ImgData = im.getdata()
         # validate image parameters
         if (width & 1) != 0:
-            print "Error: width of image '%s' is not divisible by 2." % imgPngFiles[idx]
+            print(f"Error: width of image '{imgPngFiles[idx]}' is not divisible by 2.")
             sys.exit(2)
         if im.mode != 'P':
-            print "Error: image '%s' is not a palette (indexed color) image" % imgPngFiles[idx]
+            print(f"Error: image '{imgPngFiles[idx]}' is not a palette (indexed color) image")
             sys.exit(3)
         # make a histogram of the palette entries
         ColorHist = [ 0 for j in range(256) ]
@@ -308,13 +308,13 @@ if __name__ == "__main__":
                 NewPalette.append(j)
         # we cannot make a Coco image out of this if it uses more than 16 colors
         if len(NewPalette) > 16:
-            print "Error: image '%s' uses more than 16 colors! (actual=%i)" % (imgPngFiles[idx], len(NewPalette))
+            print(f"Error: image '{imgPngFiles[idx]}' uses more than 16 colors! (actual=len(NewPalette))")
             sys.exit(4)
         # generate palettes and palette mappings for both Composite and RGB mode on Coco
         (CMPPalette, RGBPalette, ImageToCocoMap) = GenerateCocoPalettes(NewPalette, im.palette.getdata()[1])
         # find indices for foreground/background colors as specified in text file
         if i not in ImageColorDict:
-            print "Error: image '%s' missing in images.txt file!" % imgPngFiles[idx]
+            print(f"Error: image '{imgPngFiles[idx]}' missing in images.txt file!")
             sys.exit(5)
         SpecialColors = ImageColorDict[i]
         BKIdx = ClosestColorOf16(SpecialColors.back, CMPPalette, CocoLuvByCMP)
@@ -322,26 +322,26 @@ if __name__ == "__main__":
         BarIdx = ClosestColorOf16(SpecialColors.bar, CMPPalette, CocoLuvByCMP)
         SpecialColors.indices = (BKIdx, FGIdx, BarIdx)
         # generate packed pixel data (Coco format) of image
-        CocoImgData = ""
+        CocoImgData = bytearray()
         for i in range(0,width*height,2):
             lpix = ImageToCocoMap[ImgData[i]]
             rpix = ImageToCocoMap[ImgData[i+1]]
-            CocoImgData += chr((lpix << 4) + rpix)
+            CocoImgData += bytes(((lpix << 4) + rpix,))
         # compress the Coco pixel data
         comp = Compressor(CocoImgData)
         compImgData = comp.Deflate(bPrintInfo=False, bUseGzip=True)
         allImageSizes.append((width, height, len(compImgData)))
         # put the palettes, special color indices, and compressed image data into our output stream
         for i in range(16):
-            allCompImageData += chr(CMPPalette[i])
+            allCompImageData += bytes((CMPPalette[i],))
         for i in range(16):
-            allCompImageData += chr(RGBPalette[i])
-        allCompImageData += chr(BKIdx) + chr(FGIdx) + chr(BarIdx)
+            allCompImageData += bytes((RGBPalette[i],))
+        allCompImageData += bytes((BKIdx, FGIdx, BarIdx))
         allCompImageData += compImgData
         # print message
-        print "    Image '%s'  width=%i  height=%i  compressed bytes=%i" % (imgPngFiles[idx], width, height, len(compImgData))
-        print "        CMP Palette: " + " ".join([("%02i" % i) for i in CMPPalette])
-        print "        RGB Palette: " + " ".join([("%02i" % i) for i in RGBPalette])
+        print(f"    Image '{imgPngFiles[idx]}'  width={width}  height={height}  compressed bytes={len(compImgData)}")
+        print("        CMP Palette: " + " ".join([("%02i" % i) for i in CMPPalette]))
+        print("        RGB Palette: " + " ".join([("%02i" % i) for i in RGBPalette]))
     # write out the data file
     f = open(os.path.join(cc3dir, "IMAGES.DAT"), "wb")
     f.write(allCompImageData)
@@ -353,14 +353,14 @@ if __name__ == "__main__":
     f.write((" " * 24) + "fcb     " + s + (" " * (16 - len(s))) + "* number of splash images in directory\n")
     for i in range(maxNumber+1):
         if i not in imgPngNumbers:
-            f.write((" " * 24) + ("* Image: %02i - [empty]\n" % i))
+            f.write((" " * 24) + f"* Image: {int(i):02} - [empty]\n")
             f.write((" " * 24) + "fdb     " + "0,0\n")
             f.write((" " * 24) + "fcb     " + "0,0,0\n")
             continue
         idx = imgPngNumbers.index(i)
         SpecialColors = ImageColorDict[i]
-        f.write((" " * 24) + ("* Image: %02i - %s\n" % (i, imgPngFiles[idx][3:-4])))
-        s = str(allImageSizes[i][0] / 2)
+        f.write((" " * 24) + f"* Image: {int(i):02} - {imgPngFiles[idx][3:-4]}\n")
+        s = str(allImageSizes[i][0] // 2)
         f.write((" " * 24) + "fcb     " + s + (" " * (16-len(s))) + "* width of image (in bytes)\n")
         s = str(allImageSizes[i][1])
         f.write((" " * 24) + "fcb     " + s + (" " * (16-len(s))) + "* height of image\n")

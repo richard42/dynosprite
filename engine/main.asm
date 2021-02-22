@@ -175,9 +175,9 @@ DrawObjDone@
             sta         <Obj_MotionFactor       * A is number of 60hz fields dropped since last new frame displayed, minus one
 
             * 6. Read input status
+            jsr         Input_ReadKeyboard      * Always read the keyboard
             tst         <Input_UseKeyboard
             beq         >
-            jsr         Input_ReadKeyboard
             bra         InputDone@
 !           jsr         Input_ReadStateDigital
 InputDone@

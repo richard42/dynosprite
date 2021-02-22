@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #********************************************************************************
 # DynoSprite - scripts/sprite2asm.py
 # Copyright (c) 2013-2014, Richard Goedeken
@@ -100,7 +100,7 @@ class AsmStream:
         if name == None:
             self.text = ""
         else:
-            self.text = "*" * 60 + ("\n* %s:\n" % name) + "*" * 60 + "\n%s\n" % name
+            self.text = "*" * 60 + f"\n* {name}:\n" + "*" * 60 + f"\n{name}\n"
         self.metrics = AsmMetrics()
         if regState == None:
             self.reg = AsmRegisters()
@@ -117,7 +117,7 @@ class AsmStream:
         self.text += "            * " + text + "\n"
 
     def emit_label(self, text):
-        self.text += "%s\n" % text
+        self.text += f"{text}\n"
 
     def emit_op(self, op, reg, comment, cycles6809, cycles6309, bytes):
         # generate string for this instruction line
@@ -137,7 +137,7 @@ class AsmStream:
 
     def gen_loadimm_accum(self, regnum, value, comment):
         if self.reg.IsValid(regnum) and self.reg.GetValue(regnum) == value:
-            # print "gen_loadimm_accum warning: register '%s' loading value 0x%x it already contains" % (regName[regnum], value)
+            # print("gen_loadimm_accum warning: register '%s' loading value 0x%x it already contains" % (regName[regnum], value))
             return
         # optimization: if possible, demote this accumulator load instruction to a smaller size
         if regnum == regQ and self.reg.IsValid(regD) and self.reg.GetValue(regD) == ((value >> 16) & 0xffff):
@@ -160,12 +160,12 @@ class AsmStream:
             value = value >> 8
         # handle register Q loads separately
         if regnum == regQ:
-            self.emit_op("ldq", ("#$%08x" % value), comment, 5, 5, 5)
+            self.emit_op("ldq", (f"#${value:08x}"), comment, 5, 5, 5)
             self.reg.SetValue(regQ, value)
             return
         # sanity check on register to load
         if regnum != regA and regnum != regB and regnum != regD and regnum != regE and regnum != regF and regnum != regW:
-            raise Exception("invalid accumulator register '%s' give to gen_loadimm_accum" % regName[regnum])
+            raise Exception(f"invalid accumulator register '{regName[regnum]}' give to gen_loadimm_accum")
         # if we know the previous value of the register that we're loading, then we may be able to save some
         # bytes/cycles by modifying it with a clr/com/neg/inc/dec instruction instead of loading it
         if self.reg.IsValid(regnum):
@@ -173,49 +173,49 @@ class AsmStream:
         else:
             oldval = None
         if value == 0 and (regnum == regA or regnum == regB):
-            self.emit_op("clr%s" % regName[regnum], "", comment, 2, 1, 1)
+            self.emit_op(f"clr{regName[regnum]}", "", comment, 2, 1, 1)
         elif value == 0 and CPU == 6309 and (regnum == regD or regnum == regE or regnum == regF or regnum == regW):
-            self.emit_op("clr%s" % regName[regnum], "", comment, 3, 2, 2)
+            self.emit_op(f"clr{regName[regnum]}", "", comment, 3, 2, 2)
         elif oldval == 255 - value and (regnum == regA or regnum == regB):
-            self.emit_op("com%s" % regName[regnum], "", comment + " (%s = ~$%02x = $%02x)" % (regName[regnum], oldval, value), 2, 1, 1)
+            self.emit_op(f"com{regName[regnum]}", "", comment + f" ({regName[regnum]} = ~${oldval:02x} = ${value:02x})", 2, 1, 1)
         elif oldval == 255 - value and CPU == 6309 and (regnum == regE or regnum == regF):
-            self.emit_op("com%s" % regName[regnum], "", comment + " (%s = ~$%02x = $%02x)" % (regName[regnum], oldval, value), 3, 2, 2)
+            self.emit_op(f"com{regName[regnum]}", "", comment + f" ({regName[regnum]} = ~${oldval:02x} = ${value:02x})", 3, 2, 2)
         elif oldval == 65535 - value and CPU == 6309 and (regnum == regD or regnum == regW):
-            self.emit_op("com%s" % regName[regnum], "", comment + " (%s = ~$%04x = $%04x)" % (regName[regnum], oldval, value), 3, 2, 2)
+            self.emit_op(f"com{regName[regnum]}", "", comment + f" ({regName[regnum]} = ~${oldval:04x} = ${value:04x})", 3, 2, 2)
         elif oldval == (256 - value) & 0xff and (regnum == regA or regnum == regB):
-            self.emit_op("neg%s" % regName[regnum], "", comment + " (%s = -$%02x = $%02x)" % (regName[regnum], oldval, value), 2, 1, 1)
+            self.emit_op(f"neg{regName[regnum]}", "", comment + f" ({regName[regnum]} = -${oldval:02x} = ${value:02x})", 2, 1, 1)
         elif oldval == (65536 - value) & 0xffff and CPU == 6309 and regnum == regD:
-            self.emit_op("neg%s" % regName[regnum], "", comment + " (%s = -$%04x = $%04x)" % (regName[regnum], oldval, value), 3, 2, 2)
+            self.emit_op(f"neg{regName[regnum]}", "", comment + f" ({regName[regnum]} = -${oldval:04x} = ${value:04x})", 3, 2, 2)
         elif oldval == (value - 1) & 0xff and (regnum == regA or regnum == regB):
-            self.emit_op("inc%s" % regName[regnum], "", comment + " (%s = $%02x+1 = $%02x)" % (regName[regnum], oldval, value), 2, 1, 1)
+            self.emit_op(f"inc{regName[regnum]}", "", comment + f" ({regName[regnum]} = ${oldval:02x}+1 = ${value:02x})", 2, 1, 1)
         elif oldval == (value - 1) & 0xff and CPU == 6309 and (regnum == regE or regnum == regF):
-            self.emit_op("inc%s" % regName[regnum], "", comment + " (%s = $%02x+1 = $%02x)" % (regName[regnum], oldval, value), 3, 2, 2)
+            self.emit_op(f"inc{regName[regnum]}", "", comment + f" ({regName[regnum]} = ${oldval:02x}+1 = ${value:02x})", 3, 2, 2)
         elif oldval == (value - 1) & 0xffff and CPU == 6309 and (regnum == regD or regnum == regW):
-            self.emit_op("inc%s" % regName[regnum], "", comment + " (%s = $%04x+1 = $%04x)" % (regName[regnum], oldval, value), 3, 2, 2)
+            self.emit_op(f"inc{regName[regnum]}", "", comment + f" ({regName[regnum]} = ${oldval:04x}+1 = ${value:04x})", 3, 2, 2)
         elif oldval == (value + 1) & 0xff and (regnum == regA or regnum == regB):
-            self.emit_op("dec%s" % regName[regnum], "", comment + " (%s = $%02x-1 = $%02x)" % (regName[regnum], oldval, value), 2, 1, 1)
+            self.emit_op(f"dec{regName[regnum]}", "", comment + f" ({regName[regnum]} = ${oldval:02x}-1 = ${value:02x})", 2, 1, 1)
         elif oldval == (value + 1) & 0xff and CPU == 6309 and (regnum == regE or regnum == regF):
-            self.emit_op("dec%s" % regName[regnum], "", comment + " (%s = $%02x-1 = $%02x)" % (regName[regnum], oldval, value), 3, 2, 2)
+            self.emit_op(f"dec{regName[regnum]}", "", comment + f" ({regName[regnum]} = ${oldval:02x}-1 = ${value:02x})", 3, 2, 2)
         elif oldval == (value + 1) & 0xffff and CPU == 6309 and (regnum == regD or regnum == regW):
-            self.emit_op("dec%s" % regName[regnum], "", comment + " (%s = $%04x-1 = $%04x)" % (regName[regnum], oldval, value), 3, 2, 2)
+            self.emit_op(f"dec{regName[regnum]}", "", comment + f" ({regName[regnum]} = ${oldval:04x}-1 = ${value:04x})", 3, 2, 2)
         else:
             # we must do a full register load instruction
             if regnum == regD:
-                self.emit_op("ldd", ("#$%04x" % value), comment, 3, 3, 3)
+                self.emit_op("ldd", (f"#${value:04x}"), comment, 3, 3, 3)
             elif regnum == regW:
-                self.emit_op("ldw", ("#$%04x" % value), comment, 4, 4, 4)
+                self.emit_op("ldw", (f"#${value:04x}"), comment, 4, 4, 4)
             elif regnum == regE or regnum == regF:
-                self.emit_op("ld%s" % regName[regnum], ("#$%02x" % value), comment, 3, 3, 3)
+                self.emit_op(f"ld{regName[regnum]}", (f"#${value:02x}"), comment, 3, 3, 3)
             else:
-                self.emit_op("ld%s" % regName[regnum], ("#$%02x" % value), comment, 2, 2, 2)
+                self.emit_op(f"ld{regName[regnum]}", (f"#${value:02x}"), comment, 2, 2, 2)
         self.reg.SetValue(regnum, value)
 
     def gen_loadstore_indexed(self, bLoad, regLdSt, regIdx, offset, comment):
-        opcode = "%s%s" % ({False:"st",True:"ld"}[bLoad], regName[regLdSt])
+        opcode = "{}{}".format({False:"st",True:"ld"}[bLoad], regName[regLdSt])
         if offset == 0:
-            operands = ",%s" % regName[regIdx]
+            operands = f",{regName[regIdx]}"
         else:
-            operands = "%i,%s" % (offset, regName[regIdx])
+            operands = f"{int(offset)},{regName[regIdx]}"
         if regLdSt == regA or regLdSt == regB:
             cycles = 4
             bytes = 2
@@ -232,7 +232,7 @@ class AsmStream:
             cycles = 8
             bytes = 3
         else:
-            raise Exception("Unsupported register %i" % regLdSt)
+            raise Exception(f"Unsupported register {int(regLdSt)}")
         if offset == 0:
             cycles += 0
             bytes += 0
@@ -253,11 +253,11 @@ class AsmStream:
             self.reg.Invalidate(regLdSt)
 
     def gen_loadeffaddr_offset(self, regDst, offset, regSrc, comment):
-        opcode = "lea%s" % regName[regDst]
+        opcode = f"lea{regName[regDst]}"
         if offset == 0:
-            operands = ",%s" % regName[regSrc]
+            operands = f",{regName[regSrc]}"
         else:
-            operands = "%i,%s" % (offset, regName[regSrc])
+            operands = f"{int(offset)},{regName[regSrc]}"
         cycles6309 = 4
         cycles6809 = 4
         bytes = 2
@@ -301,7 +301,8 @@ class Sprite:
         self.originXcode = 0    # Index of pixel column in sprite which will be written into left pixel (MSB) of
                                 # the byte to which the destination pointer is pointing when DrawLeft is called.
                                 # When DrawRight is called, this pixel will be written into the right (LSB) of the destination byte
-        self.funcErase = AsmStream("Erase_%s" % name)
+        self.chunkHint = sys.maxsize # Chunk to process rows - this is a compromise between performance and 
+        self.funcErase = AsmStream(f"Erase_{name}")
         self.funcDraw = [ None, None ]
 
     def ReadInputLine(self, line):
@@ -320,25 +321,27 @@ class Sprite:
             elif key == "hotspot":
                 coords = [ int(v) for v in value[1:-1].split(',') ]
                 self.hotspot = (coords[0], coords[1])
+            elif key == "chunkhint":
+                self.chunkHint = int(value)
             else:
-                print "illegal line in Sprite '%s' definition: %s" % (self.name, line)
+                print(f"illegal line in Sprite '{self.name}' definition: {line}")
         else:
             rowpix = line.split()
             if len(rowpix) == self.width:
                 self.matrix.append([-1 if val == "-" else int(val,16) for val in rowpix])
             else:
-                print "illegal line in Sprite '%s' definition: %s" % (self.name, line)
+                print(f"illegal line in Sprite '{self.name}' definition: {line}")
 
     def FinishDefinition(self):
         # check that we loaded all rows of the matrix
         if len(self.matrix) != self.height:
-            print "Sprite [%s] error: Matrix height %i doesn't match sprite height %i" % (self.name, len(self.matrix), self.height)
+            print(f"Sprite [{self.name}] error: Matrix height {int(len(self.matrix))} doesn't match sprite height {int(self.height)}")
         # create one or two draw functions
         if self.hasSinglePixelPos:
-            self.funcDraw[0] = AsmStream("DrawLeft_%s" % self.name)
-            self.funcDraw[1] = AsmStream("DrawRight_%s" % self.name)
+            self.funcDraw[0] = AsmStream(f"DrawLeft_{self.name}")
+            self.funcDraw[1] = AsmStream(f"DrawRight_{self.name}")
         else:
-            self.funcDraw[0] = AsmStream("Draw_%s" % self.name)
+            self.funcDraw[0] = AsmStream(f"Draw_{self.name}")
 
     def Process1_PreCalc(self):
         # analyze each row and make list of non-transparent strips (consecutive pixels)
@@ -577,7 +580,7 @@ class Sprite:
                 # generate the command
                 if offX not in byteStoreList:
                     if nibToWrite != 0:
-                        raise Exception("Logical error: byte offset %i not in store list, but nibToWrite is %i" % (offX, nibToWrite))
+                        raise Exception(f"Logical error: byte offset {int(offX)} not in store list, but nibToWrite is {int(nibToWrite)}")
                     byteCmds.append((0, 0, 0))
                     continue
                 if nibToWrite == 0:
@@ -636,7 +639,7 @@ class Sprite:
                             # we only care about command-3 bytes
                             if byteCmds[idx][0] == 3:
                                 writeVal = byteCmds[idx][1]
-                                if byteWriteCntByVal.has_key(writeVal):
+                                if writeVal in byteWriteCntByVal:
                                     byteWriteCntByVal[writeVal] += 1
                                 else:
                                     byteWriteCntByVal[writeVal] = 1
@@ -647,7 +650,7 @@ class Sprite:
                             # we only care about words containing both command-3 bytes
                             if byteCmds[idx][0] == 3 and byteCmds[idx+1][0] == 3:
                                 writeVal = (byteCmds[idx][1] << 8) + byteCmds[idx+1][1]
-                                if wordWriteCntByVal.has_key(writeVal):
+                                if writeVal in wordWriteCntByVal:
                                     wordWriteCntByVal[writeVal] += 1
                                 else:
                                     wordWriteCntByVal[writeVal] = 1
@@ -659,7 +662,7 @@ class Sprite:
                             # we only care about words containing both command-3 bytes
                             if byteCmds[idx][0] == 3 and byteCmds[idx+1][0] == 3:
                                 writeVal = (byteCmds[idx][1] << 8) + byteCmds[idx+1][1]
-                                if wordWriteCntByVal.has_key(writeVal):
+                                if writeVal in wordWriteCntByVal:
                                     wordWriteCntByVal[writeVal] += 1
                                 else:
                                     wordWriteCntByVal[writeVal] = 1
@@ -714,7 +717,7 @@ class Sprite:
                     self.lineAdvance = 0
             # fixme save the YPtrOffNew here if hasRowPointerArray is true
             if self.hasRowPointerArray:
-                funcDraw.emit_label("Row%i_%s" % (y, funcDraw.name))
+                funcDraw.emit_label(f"Row{int(y)}_{funcDraw.name}")
             # call the specific row handler method for the current CPU
             if CPU == 6309:
                 rowAsm = self.RowDraw6309(y, regState, byteStrips)
@@ -728,7 +731,7 @@ class Sprite:
             self.lineAdvance += 1
         # dump out return instruction
         funcDraw.emit_op("rts", "", "", 5, 4, 1)
-                
+
 
     # *************************************************************************************************
     # Sprite class: Draw function row generation for 6309
@@ -745,9 +748,16 @@ class Sprite:
                 thisCmd = byteCmds[byteIdx]
                 byteOffCmdList.append((off0+byteIdx, dstOffset, thisCmd[0], thisCmd[1], thisCmd[2]))
                 dstOffset += 1
-        # exhaustively search all permutations of store/write commands, and return best result
+
+        # in block of n commands, exhaustively search all permutations of store/write commands, and return best result
+        # we choose n = 12 as a compromise for compile time performance and runtime performance
         layoutDict = { 1:[], 2:[], 4:[] }
-        return self.Permute6309StoreLayouts(regState, layoutDict, byteOffCmdList, 4)
+        results = [self.Permute6309StoreLayouts(regState, layoutDict, byteOffCmdList[ii:ii + self.chunkHint], 4)
+                      for ii in range(0, len(byteOffCmdList), self.chunkHint)]
+        return_value = results[0]
+        for ii in range(1, len(results)):
+            return_value += results[ii]
+        return return_value
 
     def Permute6309StoreLayouts(self, regState, layoutDict, byteOffCmdList, searchSize):
         cmdListLen = len(byteOffCmdList)
@@ -843,7 +853,7 @@ class Sprite:
             continue
         # return the best result
         return bestAsm
-    
+
     def Permute6309StoreCodeGen(self, bestRowAsm, layoutDict, writeByteList, storeSize, scratchReg):
         if storeSize == 1 and len(layoutDict[1]) == 0:
             # this is a leaf node, so we need to permute across all possible variations of Write operations
@@ -983,10 +993,10 @@ class Sprite:
             if store1Cmd[2] == 2:
                 # we don't need to clear bits with AND mask if nybble we're writing is 15
                 if (store1Cmd[3] | store1Cmd[4]) != 0xff:
-                    bestRowAsm.emit_op(("and%s" % regName[scratchReg]), ("#$%02x" % store1Cmd[4]), "", 2, 2, 2)
+                    bestRowAsm.emit_op(f"and{regName[scratchReg]}", (f"#${store1Cmd[4]:02x}"), "", 2, 2, 2)
                 # we don't need to write nybble with OR if we're writing 0
                 if store1Cmd[3] != 0:
-                    bestRowAsm.emit_op(("or%s" % regName[scratchReg]), ("#$%02x" % store1Cmd[3]), "", 2, 2, 2)
+                    bestRowAsm.emit_op(f"or{regName[scratchReg]}", (f"#${store1Cmd[3]:02x}"), "", 2, 2, 2)
                 bestRowAsm.gen_loadstore_indexed(False, scratchReg, regX, offX, "")
                 continue
             # if this is Command-3, add it to the byte write list and continue
@@ -1007,37 +1017,37 @@ class Sprite:
             byteSplit = False
             # we don't need to clear bits with AND mask if nybble we're writing is 15
             if (byteCmd1[1] | byteCmd1[2]) != 0xff:
-                rowAsm.emit_op("anda", ("#$%02x" % byteCmd1[2]), "", 2, 2, 2)
+                rowAsm.emit_op("anda", (f"#${byteCmd1[2]:02x}"), "", 2, 2, 2)
             else:
                 byteSplit = True
             if (byteCmd2[1] | byteCmd2[2]) != 0xff:
-                rowAsm.emit_op("andb", ("#$%02x" % byteCmd2[2]), "", 2, 2, 2)
+                rowAsm.emit_op("andb", (f"#${byteCmd2[2]:02x}"), "", 2, 2, 2)
             else:
                 byteSplit = True
             if byteSplit:
                 # we don't need to write nybble with OR if we're writing 0
                 if byteCmd1[1] != 0:
-                    rowAsm.emit_op("ora", ("#$%02x" % byteCmd1[1]), "", 2, 2, 2)
+                    rowAsm.emit_op("ora", (f"#${byteCmd1[1]:02x}"), "", 2, 2, 2)
                 if byteCmd2[1] != 0:
-                    rowAsm.emit_op("orb", ("#$%02x" % byteCmd2[1]), "", 2, 2, 2)
+                    rowAsm.emit_op("orb", (f"#${byteCmd2[1]:02x}"), "", 2, 2, 2)
             else:
                 wordAdd = (byteCmd1[1] << 8) + byteCmd2[1]
                 if wordAdd != 0:
-                    rowAsm.emit_op("addd", "#$%04x" % wordAdd, "", 4, 3, 3)
+                    rowAsm.emit_op("addd", f"#${wordAdd:04x}", "", 4, 3, 3)
         elif byteCmd1[0] == 2:
             # we don't need to clear bits with AND mask if nybble we're writing is 15
             if (byteCmd1[1] | byteCmd1[2]) != 0xff:
-                rowAsm.emit_op("anda", ("#$%02x" % byteCmd1[2]), "", 2, 2, 2)
+                rowAsm.emit_op("anda", (f"#${byteCmd1[2]:02x}"), "", 2, 2, 2)
             # we don't need to write nybble with OR if we're writing 0
             if byteCmd1[1] != 0:
-                rowAsm.emit_op("ora", ("#$%02x" % byteCmd1[1]), "", 2, 2, 2)
+                rowAsm.emit_op("ora", (f"#${byteCmd1[1]:02x}"), "", 2, 2, 2)
         elif byteCmd2[0] == 2:
             # we don't need to clear bits with AND mask if nybble we're writing is 15
             if (byteCmd2[1] | byteCmd2[2]) != 0xff:
-                rowAsm.emit_op("andb", ("#$%02x" % byteCmd2[2]), "", 2, 2, 2)
+                rowAsm.emit_op("andb", (f"#${byteCmd2[2]:02x}"), "", 2, 2, 2)
             # we don't need to write nybble with OR if we're writing 0
             if byteCmd2[1] != 0:
-                rowAsm.emit_op("orb", ("#$%02x" % byteCmd2[1]), "", 2, 2, 2)
+                rowAsm.emit_op("orb", (f"#${byteCmd2[1]:02x}"), "", 2, 2, 2)
 
     def Permute6309WriteLayouts(self, startAsm, layoutDict, writeByteList, writeSize):
         writeListLen = len(writeByteList)
@@ -1194,7 +1204,7 @@ class Sprite:
             layoutList.pop()
             if bestAsm == None or trialAsm.metrics.cycles < bestAsm.metrics.cycles:
                 #if bestAsm != None:   # fixme debug
-                #    print "%s: row layout with (cyc=%i,bytes=%i) is better than (cyc=%i,bytes=%i)" % (self.name, trialAsm.metrics.cycles, trialAsm.metrics.bytes, bestAsm.metrics.cycles, bestAsm.metrics.bytes)
+                #    print("%s: row layout with (cyc=%i,bytes=%i) is better than (cyc=%i,bytes=%i)" % (self.name, trialAsm.metrics.cycles, trialAsm.metrics.bytes, bestAsm.metrics.cycles, bestAsm.metrics.bytes))
                 bestAsm = trialAsm
         # return the best one
         return bestAsm
@@ -1276,9 +1286,9 @@ class Sprite:
             if byteCmd[0] == 2:
                 # we don't need to clear bits with AND mask if nybble we're writing is 15
                 if (byteCmd[1] | byteCmd[2]) != 0xff:
-                    rowAsm.emit_op(("and%s" % regName[scratchReg]), ("#$%02x" % byteCmd[2]), "", 2, 2, 2)
+                    rowAsm.emit_op(f"and{regName[scratchReg]}", (f"#${byteCmd[2]:02x}"), "", 2, 2, 2)
                 if byteCmd[1] != 0:
-                    rowAsm.emit_op(("or%s" % regName[scratchReg]), ("#$%02x" % byteCmd[1]), "", 2, 2, 2)
+                    rowAsm.emit_op(f"or{regName[scratchReg]}", (f"#${byteCmd[1]:02x}"), "", 2, 2, 2)
                 rowAsm.gen_loadstore_indexed(False, scratchReg, regX, offX + 256*self.lineAdvance, "")
             elif byteCmd[0] == 3:
                 cmdBytesToWrite.append((offX,offY,byteCmd))
@@ -1287,7 +1297,7 @@ class Sprite:
         while idx < len(cmdBytesToWrite):
             (offX,offY,byteCmd) = cmdBytesToWrite[idx]
             if byteCmd[0] != 3:
-                raise Exception("Error: byte command %i is in the cmdBytesToWrite list!" % byteCmd[0])
+                raise Exception(f"Error: byte command {int(byteCmd[0])} is in the cmdBytesToWrite list!")
             if rowAsm.reg.IsValid(regA) and byteCmd[1] == rowAsm.reg.GetValue(regA):
                 rowAsm.gen_loadstore_indexed(False, regA, regX, offX + 256*self.lineAdvance, "")  # sta off,x
                 cmdBytesToWrite.pop(idx)
@@ -1308,31 +1318,31 @@ class Sprite:
                 byteSplit = False
                 # we don't need to clear bits with AND mask if nybble we're writing is 15
                 if (byteCmd1[1] | byteCmd1[2]) != 0xff:
-                    rowAsm.emit_op("anda", ("#$%02x" % byteCmd1[2]), "", 2, 2, 2)
+                    rowAsm.emit_op("anda", (f"#${byteCmd1[2]:02x}"), "", 2, 2, 2)
                 else:
                     byteSplit = True
                 if (byteCmd2[1] | byteCmd2[2]) != 0xff:
-                    rowAsm.emit_op("andb", ("#$%02x" % byteCmd2[2]), "", 2, 2, 2)
+                    rowAsm.emit_op("andb", (f"#${byteCmd2[2]:02x}"), "", 2, 2, 2)
                 else:
                     byteSplit = True
                 if byteSplit:
                     # we don't need to write nybble with OR if we're writing 0
                     if byteCmd1[1] != 0:
-                        rowAsm.emit_op("ora", ("#$%02x" % byteCmd1[1]), "", 2, 2, 2)
+                        rowAsm.emit_op("ora", (f"#${byteCmd1[1]:02x}"), "", 2, 2, 2)
                     if byteCmd2[1] != 0:
-                        rowAsm.emit_op("orb", ("#$%02x" % byteCmd2[1]), "", 2, 2, 2)
+                        rowAsm.emit_op("orb", (f"#${byteCmd2[1]:02x}"), "", 2, 2, 2)
                 else:
                     wordAdd = (byteCmd1[1] << 8) + byteCmd2[1]
                     if wordAdd != 0:
-                        rowAsm.emit_op("addd", "#$%04x" % wordAdd, "", 4, 3, 3)
+                        rowAsm.emit_op("addd", f"#${wordAdd:04x}", "", 4, 3, 3)
                 rowAsm.gen_loadstore_indexed(False, regD, regX, offX + 256*self.lineAdvance, "")  # std off,x
             elif byteCmd1[0] == 2:
                 # we don't need to clear bits with AND mask if nybble we're writing is 15
                 if (byteCmd1[1] | byteCmd1[2]) != 0xff:
-                    rowAsm.emit_op("anda", ("#$%02x" % byteCmd1[2]), "", 2, 2, 2)
+                    rowAsm.emit_op("anda", (f"#${byteCmd1[2]:02x}"), "", 2, 2, 2)
                 # we don't need to write nybble with OR if we're writing 0
                 if byteCmd1[1] != 0:
-                    rowAsm.emit_op("ora", ("#$%02x" % byteCmd1[1]), "", 2, 2, 2)
+                    rowAsm.emit_op("ora", (f"#${byteCmd1[1]:02x}"), "", 2, 2, 2)
                 if byteCmd2[0] == 1:
                     rowAsm.gen_loadstore_indexed(False, regA, regX, offX + 256*self.lineAdvance, "")  # sta off,x
                 else:  # assert: byteCmd2[0] == 3
@@ -1341,10 +1351,10 @@ class Sprite:
             elif byteCmd2[0] == 2:
                 # we don't need to clear bits with AND mask if nybble we're writing is 15
                 if (byteCmd2[1] | byteCmd2[2]) != 0xff:
-                    rowAsm.emit_op("andb", ("#$%02x" % byteCmd2[2]), "", 2, 2, 2)
+                    rowAsm.emit_op("andb", (f"#${byteCmd2[2]:02x}"), "", 2, 2, 2)
                 # we don't need to write nybble with OR if we're writing 0
                 if byteCmd2[1] != 0:
-                    rowAsm.emit_op("orb", ("#$%02x" % byteCmd2[1]), "", 2, 2, 2)
+                    rowAsm.emit_op("orb", (f"#${byteCmd2[1]:02x}"), "", 2, 2, 2)
                 if byteCmd1[0] == 1:
                     rowAsm.gen_loadstore_indexed(False, regB, regX, offX+1 + 256*self.lineAdvance, "")  # stb off,x
                 else:  # assert: byteCmd1[0] == 3
@@ -1357,10 +1367,10 @@ class Sprite:
             raise Exception("internal error: unstored bytes/words remaining!");
         for (offX,offY,byteCmd) in cmdBytesToWrite:
             if byteCmd[0] != 3:
-                raise Exception("internal error: command-%i byte to write" % byteCmd[0])
+                raise Exception(f"internal error: command-{int(byteCmd[0])} byte to write")
         for (offX,offY,byteCmd1,byteCmd2) in cmdWordsToWrite:
             if byteCmd1[0] != 3 or byteCmd2[0] != 3:
-                raise Exception("internal error: command-(%i,%i) bytes to write in word" % (byteCmd1[0],byteCmd2[0]))
+                raise Exception(f"internal error: command-({int(byteCmd1[0])},{int(byteCmd2[0])}) bytes to write in word")
         # emit byte writes for any bytes which match our current register values
         if rowAsm.reg.IsValid(regA) or rowAsm.reg.IsValid(regB):
             idx = 0
@@ -1481,12 +1491,12 @@ class Sprite:
                 if rowNum < self.height - 1:
                     wordWriteProb = self.wordWriteProbByRow[rowNum+1]
                     byteWriteProb = self.byteWriteProbByRow[rowNum+1]
-                    if wordWriteProb.has_key(lastVal):
+                    if lastVal in wordWriteProb:
                         score += wordWriteProb[lastVal]
                     byteProb = 0.0
-                    if byteWriteProb.has_key(lastVal >> 8):
+                    if (lastVal >> 8) in byteWriteProb:
                         byteProb = byteWriteProb[lastVal >> 8]
-                    if byteWriteProb.has_key(lastVal & 0xff):
+                    if (lastVal & 0xff) in  byteWriteProb:
                         byteProb = max(byteProb, byteWriteProb[lastVal & 0xff])
                     score += byteProb
             # give 1 point for each byte load that we can avoid when advancing to next word to write
@@ -1524,7 +1534,7 @@ class App:
 
     def ReadInput(self):
         curSprite = None
-        spritetext = open(self.spriteFilename, "r").read()
+        spritetext = open(self.spriteFilename).read()
         for line in spritetext.split("\n"):
             # remove comments and whitespace from line
             pivot = line.find("*")
@@ -1549,7 +1559,7 @@ class App:
                     if key == "group":
                         self.groupNumber = int(value)
                         continue
-                print "Warning: ignore line before sprite section: %s" % line
+                print(f"Warning: ignore line before sprite section: {line}")
                 continue
             curSprite.ReadInputLine(line)
         if curSprite != None:
@@ -1560,7 +1570,7 @@ class App:
             RowName += " " * (16 - len(RowName))
         else:
             RowName = RowName[:16]
-        print RowName,
+        print(RowName, end=' ')
         for val in Values:
             if val == None:
                 s = ""
@@ -1569,14 +1579,14 @@ class App:
             elif datatype == int:
                 s = str(val)
             elif datatype == float:
-                s = "%.2f" % val
+                s = f"{val:.2f}"
             else:
                 raise Exception("Invalid data type")
             if len(s) >= 8:
-                print s[:8],
+                print(s[:8], end=' ')
             else:
-                print (" " * (8 - len(s))) + s,
-        print
+                print(" " * (8 - len(s)) + s, end=' ')
+        print()
 
     def Calculate(self):
         for sprite in self.spriteList:
@@ -1630,11 +1640,11 @@ class App:
                 TotalDrawR += sprite.funcDraw[1].metrics.bytes
         # print summary
         numSprites = len(self.spriteList)
-        print "Total number of sprites: %i" % numSprites
-        print "Total Erase code bytes: %i" % TotalErase
-        print "Total Draw Left code bytes: %i" % TotalDrawL
-        print "Total Draw Right code bytes: %i" % TotalDrawR
-        print
+        print(f"Total number of sprites: {int(numSprites)}")
+        print(f"Total Erase code bytes: {int(TotalErase)}")
+        print(f"Total Draw Left code bytes: {int(TotalDrawL)}")
+        print(f"Total Draw Right code bytes: {int(TotalDrawR)}")
+        print()
         # last column should be averages
         Names.append("Average")
         Pixels.append(sum(Pixels) / numSprites)
@@ -1659,22 +1669,22 @@ class App:
             self.PrintRow("Storage Bytes", Storage[startIdx:endIdx], int)
             self.PrintRow("Max Cycles", MaxCycles[startIdx:endIdx], int)
             self.PrintRow("Cycles/pixel", CyclesPerPix[startIdx:endIdx], float)
-            print "**************Erase:"
+            print("**************Erase:")
             self.PrintRow("Code bytes", EraseBytes[startIdx:endIdx], int)
             self.PrintRow("Clock cycles", EraseCycles[startIdx:endIdx], int)
-            print "**********Draw_Left:"
+            print("**********Draw_Left:")
             self.PrintRow("Code bytes", DrawLBytes[startIdx:endIdx], int)
             self.PrintRow("Clock cycles", DrawLCycles[startIdx:endIdx], int)
             if len(ValidDrawRBytes) > 0:
-                print "*********Draw_Right:"
+                print("*********Draw_Right:")
                 self.PrintRow("Code bytes", DrawRBytes[startIdx:endIdx], int)
                 self.PrintRow("Clock cycles", DrawRCycles[startIdx:endIdx], int)
-            print
+            print()
 
     def WriteAsm(self):
         # make sure we have a group number
         if self.groupNumber == None:
-            raise Exception("No group number was given in input file %s" % self.spriteFilename)
+            raise Exception(f"No group number was given in input file {self.spriteFilename}")
         # open output file for writing
         f = open(self.asmFilename, "w")
         origin = 0
@@ -1683,48 +1693,48 @@ class App:
         for sprite in self.spriteList:
             # drawLeft
             length = sprite.funcDraw[0].metrics.bytes
-            f.write("* (Origin: $%04X  Length: %i bytes)\n" % (origin, length))
+            f.write(f"* (Origin: ${origin:04X}  Length: {int(length)} bytes)\n")
             f.write(sprite.funcDraw[0].text + "\n")
             origin += length
             # drawRight
             if sprite.hasSinglePixelPos:
                 length = sprite.funcDraw[1].metrics.bytes
-                f.write("* (Origin: $%04X  Length: %i bytes)\n" % (origin, length))
+                f.write(f"* (Origin: ${origin:04X}  Length: {int(length)} bytes)\n")
                 f.write(sprite.funcDraw[1].text + "\n")
                 origin += length
                 bHasDrawRight = True
             # erase
             length = sprite.funcErase.metrics.bytes
-            f.write("* (Origin: $%04X  Length: %i bytes)\n" % (origin, length))
+            f.write(f"* (Origin: ${origin:04X}  Length: {int(length)} bytes)\n")
             f.write(sprite.funcErase.text + "\n")
             origin += length
         # at the end, write the Sprite Descriptor Table
-        f.write("\nNumberOfSprites\n            fcb         %i\n" % len(self.spriteList))
+        f.write(f"\nNumberOfSprites\n            fcb         {int(len(self.spriteList))}\n")
         f.write("SpriteDescriptorTable\n")
         for sprite in self.spriteList:
-            f.write("            * %s\n" % sprite.name)
+            f.write(f"            * {sprite.name}\n")
             p = str(sprite.width)
-            f.write("            fcb         %s%s* width\n" % (p, " " * (24-len(p))))
+            f.write(f"            fcb         {p}{' ' * (24 - len(p))}* width\n")
             p = str(sprite.height)
-            f.write("            fcb         %s%s* height\n" % (p, " " * (24-len(p))))
-            p = str((sprite.originXcode - sprite.originXsprite)/2)
-            f.write("            fcb         %s%s* offsetX\n" % (p, " " * (24-len(p))))
+            f.write(f"            fcb         {p}{' ' * (24 - len(p))}* height\n")
+            p = str((sprite.originXcode - sprite.originXsprite)//2)
+            f.write(f"            fcb         {p}{' ' * (24 - len(p))}* offsetX\n")
             p = str(-sprite.hotspot[1])
-            f.write("            fcb         %s%s* offsetY\n" % (p, " " * (24-len(p))))
+            f.write(f"            fcb         {p}{' ' * (24 - len(p))}* offsetY\n")
             f.write("            fcb         0                       * cpLeft\n")
             f.write("            fcb         0                       * cpRight\n")
             f.write("            fcb         0                       * cpErase\n")
             p = str(sprite.numSavedBytes)
-            f.write("            fdb         %s%s* storeBytes\n" % (p, " " * (24-len(p))))
+            f.write(f"            fdb         {p}{' ' * (24 - len(p))}* storeBytes\n")
             p = str(sprite.funcDraw[0].metrics.bytes)
-            f.write("            fdb         %s%s* length of drawLeft in bytes\n" % (p, " " * (24-len(p))))
+            f.write(f"            fdb         {p}{' ' * (24 - len(p))}* length of drawLeft in bytes\n")
             if sprite.hasSinglePixelPos:
                 p = str(sprite.funcDraw[1].metrics.bytes)
-                f.write("            fdb         %s%s* length of drawRight in bytes\n" % (p, " " * (24-len(p))))
+                f.write(f"            fdb         {p}{' ' * (24 - len(p))}* length of drawRight in bytes\n")
             else:
                 f.write("            fdb         0                       * length of drawRight in bytes\n")
             p = str(sprite.funcErase.metrics.bytes)
-            f.write("            fdb         %s%s* length of erase in bytes\n" % (p, " " * (24-len(p))))
+            f.write(f"            fdb         {p}{' ' * (24 - len(p))}* length of erase in bytes\n")
             f.write("            fcb         0                       * res1\n")
 
 # *************************************************************************************************
@@ -1733,7 +1743,7 @@ class App:
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        print "Usage: %s <InputSpriteFile> <OutputAsmFile> <6809 | 6309>" % sys.argv[0]
+        print(f"Usage: {sys.argv[0]} <InputSpriteFile> <OutputAsmFile> <6809 | 6309>")
         sys.exit(1)
     # set CPU type
     global CPU

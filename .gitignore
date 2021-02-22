@@ -10,3 +10,5 @@ tools/mess64
 tools/mess64d
 tools/mess
 tools/messd
+.DS_Store
+__pycache__

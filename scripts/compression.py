@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #********************************************************************************
 # DynoSprite - scripts/compression.py
 # Copyright (c) 2013-2014, Richard Goedeken
@@ -42,7 +42,7 @@ class BitReader:
         self.inBuffer = inputData
         self.curByteIdx = 0
         self.nextBitIdx = 0
-        self.curByte = ord(inputData[0])
+        self.curByte = inputData[0]
 
     def GetBits(self, numBits):
         value = 0
@@ -53,7 +53,7 @@ class BitReader:
                 self.nextBitIdx = 0
                 self.curByteIdx += 1
                 if self.curByteIdx < len(self.inBuffer):
-                    self.curByte = ord(self.inBuffer[self.curByteIdx])
+                    self.curByte = self.inBuffer[self.curByteIdx]
                 else:
                     self.curByte = None # throw an exception if we try to read one more bit
         return value
@@ -68,7 +68,7 @@ class BitReader:
                 self.nextBitIdx = 0
                 self.curByteIdx += 1
                 if self.curByteIdx < len(self.inBuffer):
-                    self.curByte = ord(self.inBuffer[self.curByteIdx])
+                    self.curByte = self.inBuffer[self.curByteIdx]
                 else:
                     self.curByte = None # throw an exception if we try to read one more bit
             # traverse one level down in the tree
@@ -83,21 +83,21 @@ class BitReader:
 
 class BitWriter:
     def __init__(self):
-        self.outBuffer = ""
+        self.outBuffer = b''
         self.curByte = 0
         self.nextBitIdx = 0
 
     def AddBits(self, numBits, value, bIsCode):
         # check to make sure input is valid
         if (value >> numBits) != 0:
-            raise Exception("BitWriter::AddBits error: the value %i doesn't fit within %i bits" % (value, numBits))
+            raise Exception(f"BitWriter::AddBits error: the value {int(value)} doesn't fit within {int(numBits)} bits")
         # pack the bits in our accumulator
         if bIsCode:
             for bitIdxIn in range(numBits-1,-1,-1):
                 self.curByte |= ((value >> bitIdxIn) & 1) << self.nextBitIdx
                 self.nextBitIdx += 1
                 if self.nextBitIdx == 8:
-                    self.outBuffer += chr(self.curByte)
+                    self.outBuffer += bytes((self.curByte,))
                     self.curByte = 0
                     self.nextBitIdx = 0
         else:
@@ -106,13 +106,13 @@ class BitWriter:
                 value >>= 1
                 self.nextBitIdx += 1
                 if self.nextBitIdx == 8:
-                    self.outBuffer += chr(self.curByte)
+                    self.outBuffer += bytes((self.curByte,))
                     self.curByte = 0
                     self.nextBitIdx = 0
 
     def Finalize(self):
         if self.nextBitIdx > 0:
-            self.outBuffer += chr(self.curByte)
+            self.outBuffer += bytes((self.curByte,))
         self.curByte = None
         self.nextBitIdx = None
 
@@ -135,14 +135,14 @@ class Compressor:
         # this is an expensive operation, so use a hash table
         matchHash = { }
         # first symbol is always a byte value
-        self.lz77SymbolList.append((ord(self.inputdata[0]), None, None, None))
+        self.lz77SymbolList.append(((self.inputdata[0]), None, None, None))
         inIdx = 1
         if inDataLen >= 3:
             matchHash[self.inputdata[0:3]] = [ 0 ]
         while inIdx < inDataLen:
             # if fewer than 3 bytes remaining, then we will write literals
             if (inDataLen - inIdx) < 3:
-                self.lz77SymbolList.append((ord(self.inputdata[inIdx]), None, None, None))
+                self.lz77SymbolList.append(((self.inputdata[inIdx]), None, None, None))
                 inIdx += 1
                 continue
             # search for the best string copy
@@ -166,7 +166,7 @@ class Compressor:
             # output a byte value if there is no good copy from here
             copylen = bestCopy[0]
             if copylen < 3:
-                self.lz77SymbolList.append((ord(self.inputdata[inIdx]), None, None, None))
+                self.lz77SymbolList.append(((self.inputdata[inIdx]), None, None, None))
                 if matchKey in matchHash:
                     matchHash[matchKey].append(inIdx)
                 else:
@@ -277,7 +277,7 @@ class Compressor:
         # check to make sure it's legal
         for (bits,codeval) in huffCodes:
             if bits is not None and bits > maxBits:
-                raise Exception("Huffman tree contains codes longer than maximum allowed (%i)" % maxBits)
+                raise Exception(f"Huffman tree contains codes longer than maximum allowed ({int(maxBits)})")
         return huffCodes
 
     def GenHuffmanCodesFromLengths(self, huffLengths):
@@ -303,7 +303,7 @@ class Compressor:
                 huffCodes.append((codeLength,nextVal[codeLength]))
                 nextVal[codeLength] += 1
         return huffCodes
-        
+
     # histogram codes are 4-bit code lengths, between 0 and 15
     def CompressHistogramRLE(self, histCodes, numHistCodes):
         # handle trivial cases
@@ -339,19 +339,19 @@ class Compressor:
             idx += 1
         # all done
         return histRLE
-        
+
     def DeflateWithGzip(self, bPrintInfo):
         # call 'gzip' to compress the input data
-        args = [ "gzip", "-9", "-" ]
+        args = [ b"gzip", b"-9", b"-" ]
         p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         (compData, errData) = p.communicate(self.inputdata)
         # strip the gzip headers/footer
         rawData = Decompressor.StripGZ(compData, bPrintInfo)
         return rawData
-                
+
     def Deflate(self, bPrintInfo, bUseGzip):
         if bPrintInfo:
-            print "%i bytes in input file." % len(self.inputdata)
+            print(f"{int(len(self.inputdata))} bytes in input file.")
         # call separate function to use GZIP if necessary
         if bUseGzip:
             outputData = self.DeflateWithGzip(bPrintInfo)
@@ -359,7 +359,7 @@ class Compressor:
         # start by eliminating string redundancies converting uncompressed data to LZ77 symbol list
         self.GenerateSymbolList()
         if bPrintInfo:
-            print "%i LZ77 symbols generated" % len(self.lz77SymbolList)
+            print(f"{int(len(self.lz77SymbolList))} LZ77 symbols generated")
         # now generate histograms of value/length codes and distance codes
         lenCodeHist = [ 0 for i in range(286) ]
         distCodeHist = [ 0 for i in range(30) ]
@@ -458,33 +458,33 @@ class Compressor:
 class Decompressor:
     def __init__(self, inputdata):
         self.inputBitstream = BitReader(inputdata)
-        self.outputData = ""
+        self.outputData = b''
 
     @staticmethod
     def StripGZ(inputdata, bPrintInfo):
         # check data format
-        if ord(inputdata[0]) != 0x1f or ord(inputdata[1]) != 0x8b or ord(inputdata[2]) != 8:
+        if inputdata[0] != 0x1f or inputdata[1] != 0x8b or inputdata[2] != 8:
             raise Exception("This is not a GZIP format file")
         # find the start of the compressed stream
-        flags = ord(inputdata[3])
+        flags = inputdata[3]
         zipIdx = 10
         if (flags & 4) != 0:
-            extralen = ord(inputdata[zipIdx]) * 256 + ord(inputdata[zipIdx+1])
+            extralen = inputdata[zipIdx] * 256 + inputdata[zipIdx+1]
             zipIdx += 2 + extralen
         if (flags & 8) != 0:
             startNameIdx = zipIdx
-            while ord(inputdata[zipIdx]) != 0:
+            while inputdata[zipIdx] != 0:
                 zipIdx += 1
             zipIdx += 1
             if bPrintInfo:
-                print "    Original .GZ filename: %s" % inputdata[startNameIdx:zipIdx-1]
+                print(f"    Original .GZ filename: {inputdata[startNameIdx:zipIdx - 1]}")
         if (flags & 16) != 0:
             startCommentIdx = zipIdx
-            while ord(inputdata[zipIdx]) != 0:
+            while inputdata[zipIdx] != 0:
                 zipIdx += 1
             zipIdx += 1
             if bPrintInfo:
-                print "    Original .GZ file comment: %s" % inputdata[startCommentIdx:zipIdx-1]
+                print(f"    Original .GZ file comment: {inputdata[startCommentIdx:zipIdx - 1]}")
         if (flags & 2) != 0:
             zipIdx += 2 # CRC
         # return just the DEFLATE stream
@@ -561,11 +561,11 @@ class Decompressor:
                         repeatCount = self.inputBitstream.GetBits(7) + 11
                         codeLengths.extend([0] * repeatCount)
                     else:
-                        raise Exception("Invalid RLE Code length symbol %i" % rleSymbol)
+                        raise Exception(f"Invalid RLE Code length symbol {int(rleSymbol)}")
                 if len(codeLengths) != totalCodeLengths:
                     raise Exception("Unexpected number of literal/distance huffman code lengths extracted from compressed RLE symbols")
             else:
-                raise Exception("Unsupported DEFLATE block type %i" % blockType)
+                raise Exception(f"Unsupported DEFLATE block type {int(blockType)}")
             # generate the literal/length and distance huffman trees
             lenHuffTree = self.GenerateHuffmanTreeFromLengths(codeLengths[:numLenCodes])
             distHuffTree = self.GenerateHuffmanTreeFromLengths(codeLengths[numLenCodes:])
@@ -574,7 +574,7 @@ class Decompressor:
                 lenSymbol = self.inputBitstream.GetSymbol(lenHuffTree)
                 # if it's a literal, add it to the output data and get next symbol
                 if lenSymbol < 256:
-                    self.outputData += chr(lenSymbol)
+                    self.outputData += bytes((lenSymbol,))
                     continue
                 # if it's the end code, then we are done
                 if lenSymbol == 256:
@@ -612,12 +612,12 @@ class Decompressor:
 #
 
 if __name__ == "__main__":
-    print "DynoSprite DEFLATE Compressor Script"
+    print("DynoSprite DEFLATE Compressor Script")
     # get input paths
     if len(sys.argv) != 4 or (sys.argv[1].lower() != 'zip' and sys.argv[1].lower() != 'gzip' and sys.argv[1].lower() != 'unzip'):
-        print "****Usage: %s <command> <input-file> <output-file>" % sys.argv[0]
-        print "    <command> is either 'zip', 'gzip', or 'unzip'"
-        print "    <input-file> for 'unzip' command can be in .gz format or raw compressed stream"
+        print(f"****Usage: {sys.argv[0]} <command> <input-file> <output-file>")
+        print("    <command> is either 'zip', 'gzip', or 'unzip'")
+        print("    <input-file> for 'unzip' command can be in .gz format or raw compressed stream")
         sys.exit(1)
     bCompress = not (sys.argv[1].lower() == 'unzip')
     bUseGzip = (sys.argv[1].lower() == 'gzip')
@@ -630,7 +630,7 @@ if __name__ == "__main__":
         comp = Compressor(ifdata)
         ofdata = comp.Deflate(True, bUseGzip)
         open(outfilename, "wb").write(ofdata)
-        print "Input file was compressed from %i bytes down to %i bytes." % (len(ifdata), len(ofdata))
+        print(f"Input file was compressed from {int(len(ifdata))} bytes down to {int(len(ofdata))} bytes.")
     else:
         # read the input (compressed) file
         ifdata = open(infilename, "rb").read()
@@ -641,5 +641,5 @@ if __name__ == "__main__":
         decomp = Decompressor(ifdata)
         ofdata = decomp.Inflate()
         open(outfilename, "wb").write(ofdata)
-        print "Input file was decompressed from %i bytes to %i bytes." % (len(ifdata), len(ofdata))
+        print(f"Input file was decompressed from {int(len(ifdata))} bytes to {int(len(ofdata))} bytes.")
 
