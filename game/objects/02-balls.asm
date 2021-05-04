@@ -670,6 +670,7 @@ ObjectDescriptorTable
                         fdb     Demo_Grp2Object0_Reactivate
                         fdb     Demo_Grp2Object0_Update
                         fdb     0               * custom draw function
+                        fdb     0               * vpageAddr
                         fdb     0,0             * res2
 
 

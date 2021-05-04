@@ -108,6 +108,8 @@ ObjectLoop2@
             std         COB.statePtr,x          * the state data pointer is now correct
             leau        7,u                     * point to the initialization data for this object in the object init stream
             ldy         COB.odtPtr,x
+            lda         [ODT.vpageAddr,y]       * load the page number
+            sta         $FFA3                   * load the page
             pshs        u,y,x
             jsr         [ODT.init,y]            * call the initialization function for this object type
             puls        x,y,u
@@ -117,6 +119,8 @@ ObjectLoop2@
             puls        a
             deca
             bne         ObjectLoop2@
+!           lda         <MemMgr_VirtualTable+VH_LVLOBJCODE1 * Map in the first page
+            sta         $FFA3
             rts
 
 ***********************************************************

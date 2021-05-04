@@ -43,7 +43,7 @@
 
 * Definitions
 *
-MAX_SPRITE_CODE_PAGES   EQU     25              * 64 - 28 (graphics aperture) - 6 (core code+rom) - 5 (min gfx+sound data)
+MAX_SPRITE_CODE_PAGES   EQU     26-OBJPAGES     * 64 - 28 (graphics aperture) - 5 (core code+rom) - 5 (min gfx+sound data) - OBJPAGES
 
 * Virtual Handle definitions for 8k pages which are fixed at program start time
 VH_CODE1        EQU     0                       * primary code page w/ stack, always resident at $2000
@@ -55,13 +55,14 @@ VH_DSKROM       EQU     4                       * Disk BASIC code image (used wh
 VH_HIGHROM      EQU     5                       * Top 8k of cartridge ROM space (used with CoCoNET MicroSD Pak)
 
 VH_SPRERASE     EQU     6                       * Sprite background pixels
-VH_LVLOBJCODE   EQU     7                       * Level and object handling code page
-VH_BKTILES      EQU     8                       * background block texture data (max 8 8k pages)
-VH_BKMAP        EQU     16                      * background tilemap (max 8 8k pages)
-VH_ZIPDATA      EQU     24                      * decompressor tables and large state data (one page)
-VH_ZIPBUF       EQU     25                      * decompressed data buffer (max 5 8k pages)
-VH_SOUNDDATA    EQU     30                      * audio waveform pages (max 8 8k pages)
-VH_SPRCODE      EQU     38                      * sprite draw/erase code pages
+VH_LVLOBJCODE1  EQU     7                       * First level and object handling code page
+VH_LVLOBJCODEX  EQU     7+OBJPAGES-1            * Last level and object handling code page
+VH_BKTILES      EQU     8+OBJPAGES-1            * background block texture data (max 8 8k pages)
+VH_BKMAP        EQU     16+OBJPAGES-1           * background tilemap (max 8 8k pages)
+VH_ZIPDATA      EQU     24+OBJPAGES-1           * decompressor tables and large state data (one page)
+VH_ZIPBUF       EQU     25+OBJPAGES-1           * decompressed data buffer (max 5 8k pages)
+VH_SOUNDDATA    EQU     30+OBJPAGES-1           * audio waveform pages (max 8 8k pages)
+VH_SPRCODE      EQU     38+OBJPAGES-1           * sprite draw/erase code pages
 
 ***********************************************************
 * MemMgr_Init

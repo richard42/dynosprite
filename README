@@ -79,18 +79,20 @@ pre-requisites, continue with the Linux build instructions.
 Type 'make' by itself to view all available build options:
 
  $ make
-DynoSprite makefile.
+DynoSprite makefile. 
   Targets:
-    all           == Build disk image
-    clean         == remove binary and output files
-    test          == run test in MAME
+    all            == Build disk image
+    clean          == remove binary and output files
+    test           == run test in MAME
   Build Options:
-    RELEASE=1     == build without bounds checking / SWI instructions
-    SPEEDTEST=1   == run loop during idle and count time for analysis
-    VISUALTIME=1  == set screen width to 256 and change border color
-    CPU=6309      == build with faster 6309-specific instructions
+    RELEASE=1      == build without bounds checking / SWI instructions
+    SPEEDTEST=1    == run loop during idle and count time for analysis
+    VISUALTIME=1   == set screen width to 256 and change border color
+    CPU=6309       == build with faster 6309-specific instructions
+    OBJPAGES=1     == num of pages to use levels and objects
+    OBJPAGEGUARD=0 == num bytes to reserve at top of each object code page
   Debugging Options:
-    MAMEDBG=1     == run MAME with debugger window (for 'test' target)
+    MAMEDBG=1      == run MAME with debugger window (for 'test' target)
 
 Special notes about audio conversion:
  - if you encounter errors from 'ffmpeg' during the audio conversion step,
