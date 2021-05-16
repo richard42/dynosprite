@@ -239,9 +239,7 @@ SetFrontBufBackground@
             jsr         Img_FadeIn
             * Allocate 8k blocks to store Level and Object code, and map first to $6000
             lda         #VH_LVLOBJCODEX
-!           pshs        a
-            jsr         MemMgr_AllocateBlock
-            puls        a
+!           jsr         MemMgr_AllocateBlock
             cmpa        #VH_LVLOBJCODE1
             beq         >
             deca
@@ -900,15 +898,15 @@ SpriteLoop@
             tfr         d,u
             std         ObjCodePtr@
             addd        GroupObjCodeSize@
- IFDEF DEBUG
             cmpd        #$8000-OBJPAGEGUARD     * are we beyond the page - the guard space?
             bls         LoadObject@
- ENDC
 *
+ IFDEF DEBUG
             lda         ObjCodeVirtualPage      * Did we already hit the second page?
 	    cmpa        #VH_LVLOBJCODEX
             bne         >                       * No, nothing to see here
             swi                                 * Error: out of memory for level / object code
+ ENDC
 *
 * We have to map in another page and record the fact that we are doing that
 !           inc         ObjCodeVirtualPage      * increment to the next virtual page
@@ -1119,10 +1117,14 @@ ProgressDone@
 Ldr_Unload_Level
             * 1. Start by freeing all of the 8k blocks allocated
             lda         #VH_LVLOBJCODE1         * free the level/object code page
+!           pshs        a
             jsr         MemMgr_FreeBlock
-            lda         #VH_LVLOBJCODEX
-            jsr         MemMgr_FreeBlock
-            ldb         Ldr_NumSpriteCodePages  * free the Sprite Draw/Erase code pages
+            puls        a
+            cmpa        #VH_LVLOBJCODEX
+            beq         >
+            inca
+            bra         <
+!           ldb         Ldr_NumSpriteCodePages  * free the Sprite Draw/Erase code pages
             lda         #VH_SPRCODE
 FreeSpritePages@
             pshs        a,b,x
