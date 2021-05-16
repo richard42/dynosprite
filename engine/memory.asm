@@ -55,14 +55,14 @@ VH_DSKROM       EQU     4                       * Disk BASIC code image (used wh
 VH_HIGHROM      EQU     5                       * Top 8k of cartridge ROM space (used with CoCoNET MicroSD Pak)
 
 VH_SPRERASE     EQU     6                       * Sprite background pixels
-VH_LVLOBJCODE1  EQU     7                       * First level and object handling code page
-VH_LVLOBJCODEX  EQU     7+OBJPAGES-1            * Last level and object handling code page
-VH_BKTILES      EQU     8+OBJPAGES-1            * background block texture data (max 8 8k pages)
-VH_BKMAP        EQU     16+OBJPAGES-1           * background tilemap (max 8 8k pages)
-VH_ZIPDATA      EQU     24+OBJPAGES-1           * decompressor tables and large state data (one page)
-VH_ZIPBUF       EQU     25+OBJPAGES-1           * decompressed data buffer (max 5 8k pages)
-VH_SOUNDDATA    EQU     30+OBJPAGES-1           * audio waveform pages (max 8 8k pages)
-VH_SPRCODE      EQU     38+OBJPAGES-1           * sprite draw/erase code pages
+VH_BKTILES      EQU     7                       * background block texture data (max 8 8k pages)
+VH_BKMAP        EQU     15                      * background tilemap (max 8 8k pages)
+VH_ZIPDATA      EQU     23                      * decompressor tables and large state data (one page)
+VH_ZIPBUF       EQU     24                      * decompressed data buffer (max 5 8k pages)
+VH_SOUNDDATA    EQU     29                      * audio waveform pages (max 8 8k pages)
+VH_SPRCODE      EQU     37                      * sprite draw/erase code pages
+VH_LVLOBJCODE1  EQU     63-OBJPAGES+1           * First level and object handling code page
+VH_LVLOBJCODEX  EQU     63                      * Last level and object handling code page
 
 ***********************************************************
 * MemMgr_Init
