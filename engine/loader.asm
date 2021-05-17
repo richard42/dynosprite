@@ -41,8 +41,6 @@ Ldr_ProgressBarPtr      zmb     2
 Ldr_ProgressBarPage     zmb     1
 Ldr_CurProgressSec      zmb     2
 Ldr_CurProgressPct      zmb     1
-                        zmb     1
-ObjCodeVirtualPage      zmb     1
 
 ***********************************************************
 * Ldr_Jump_To_New_Level:
@@ -244,8 +242,7 @@ SetFrontBufBackground@
             beq         >
             deca
             bra         <
-!           sta         ObjCodeVirtualPage
-            stb         $FFA3
+!           stb         $FFA3
             ldd         #$6000
             std         Ldr_LvlObjCodeEndPtr
             * Start the SectorsToLoad calculation with the size of the level data
@@ -782,16 +779,23 @@ GroupObjCodeSize@       zmb     2
 GroupCompSpriteCode@    zmb     2
 GroupCompObjectCode@    zmb     2
 ObjCodePtr@             zmb     2
+ObjCodeVirtualPage@     zmb     2
 *
 Ldr_Load_SpriteGroup
             * Start by setting up this group's entry in the Sprite Group Table
             lda         <Gfx_NumSpriteGroups    * calculate starting pointer to this group's SGT entry
+            pshs        a
             inc         <Gfx_NumSpriteGroups
             ldb         #sizeof{SGT}
             mul
             ldx         <Gfx_SpriteGroupsPtr
             ADD_D_TO_X
-            ldd         GDO.ObjCodeSize,y       * store this group's object code size in a local variable
+            puls	a
+            tsta
+            bne         >
+            lda         #VH_LVLOBJCODE1
+            sta         ObjCodeVirtualPage@+1
+!           ldd         GDO.ObjCodeSize,y       * store this group's object code size in a local variable
             std         GroupObjCodeSize@
             ldd         GDO.CompSpriteCodeSize,y
             std         GroupCompSpriteCode@
@@ -902,15 +906,15 @@ SpriteLoop@
             bls         LoadObject@
 *
  IFDEF DEBUG
-            lda         ObjCodeVirtualPage      * Did we already hit the second page?
+            lda         ObjCodeVirtualPage@+1   * Did we already hit the second page?
 	    cmpa        #VH_LVLOBJCODEX
             bne         >                       * No, nothing to see here
             swi                                 * Error: out of memory for level / object code
  ENDC
 *
 * We have to map in another page and record the fact that we are doing that
-!           inc         ObjCodeVirtualPage      * increment to the next virtual page
-	    ldx         ObjCodeVirtualPage-1
+!           inc         ObjCodeVirtualPage@+1   * increment to the next virtual page
+	    ldx         ObjCodeVirtualPage@
             lda         MemMgr_VirtualTable,x   * Map in the second page
             sta         $FFA3
 	    ldd         #$6000                  * Store code at the beggining of the page
@@ -947,7 +951,7 @@ ObjectLoop@
             ldd         ODT.draw,x
             addd        ObjCodePtr@
             std         ODT.draw,x
-            ldy         ObjCodeVirtualPage-1
+            ldy         ObjCodeVirtualPage@
             leay        MemMgr_VirtualTable,y
             sty         ODT.vpageAddr,x
             puls        a
