@@ -784,18 +784,15 @@ ObjCodeVirtualPage@     zmb     2
 Ldr_Load_SpriteGroup
             * Start by setting up this group's entry in the Sprite Group Table
             lda         <Gfx_NumSpriteGroups    * calculate starting pointer to this group's SGT entry
-            pshs        a
-            inc         <Gfx_NumSpriteGroups
-            ldb         #sizeof{SGT}
+            bne         >                       * branch if ObjCodeVirtualPage@ already initialized?
+            ldb         #VH_LVLOBJCODE1         * initialize ObjCodeVirtualPage@ with first code page
+            stb         ObjCodeVirtualPage@+1
+!           inc         <Gfx_NumSpriteGroups    * increment to next group SGT entry for next call
+            ldb         #sizeof{SGT}            * resume calc of pointer to this group's SGT entry
             mul
             ldx         <Gfx_SpriteGroupsPtr
             ADD_D_TO_X
-            puls	a
-            tsta
-            bne         >
-            lda         #VH_LVLOBJCODE1
-            sta         ObjCodeVirtualPage@+1
-!           ldd         GDO.ObjCodeSize,y       * store this group's object code size in a local variable
+            ldd         GDO.ObjCodeSize,y       * store this group's object code size in a local variable
             std         GroupObjCodeSize@
             ldd         GDO.CompSpriteCodeSize,y
             std         GroupCompSpriteCode@
