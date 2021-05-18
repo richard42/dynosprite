@@ -221,6 +221,7 @@ init                    rmd     1
 reactivate              rmd     1
 update                  rmd     1
 draw                    rmd     1
+vpageAddr               rmd     1
 res2                    rmd     2
             ENDSTRUCT
 

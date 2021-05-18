@@ -72,7 +72,7 @@ class Group:
         if len(self.SprRaw) != sdtStart + self.numSprites * 16:
             print(f"****Error: group {int(self.grpNumber)} sprite raw code file length is wrong")
             sys.exit(1)
-        if len(self.ObjRaw) != odtStart + self.numObjects * 16:
+        if len(self.ObjRaw) != odtStart + self.numObjects * 18:
             print("****Error: group {} object raw code file length is wrong: {} {}" \
               .format(self.numObjects, len(self.ObjRaw), odtStart + self.numObjects * 16))
             sys.exit(1)

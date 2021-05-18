@@ -122,6 +122,16 @@ else
   LOADERSRC += $(SRCDIR)/graphics-blockdraw-6809.asm
   MAMESYSTEM = coco3
 endif
+ifeq ($(OBJPAGES),)
+  ASMFLAGS += --define=OBJPAGES=1
+else
+  ASMFLAGS += --define=OBJPAGES=$(OBJPAGES)
+endif
+ifeq ($(OBJPAGEGUARD),)
+  ASMFLAGS += --define=OBJPAGEGUARD=0
+else
+  ASMFLAGS += --define=OBJPAGEGUARD=$(OBJPAGEGUARD)
+endif
 ifeq ($(MAMEDBG), 1)
   MAMEFLAGS += -debug
 endif
@@ -133,16 +143,18 @@ TARGET = DYNO$(CPU).DSK
 targets:
 	@echo "DynoSprite makefile. "
 	@echo "  Targets:"
-	@echo "    all           == Build disk image"
-	@echo "    clean         == remove binary and output files"
-	@echo "    test          == run test in MAME"
+	@echo "    all            == Build disk image"
+	@echo "    clean          == remove binary and output files"
+	@echo "    test           == run test in MAME"
 	@echo "  Build Options:"
-	@echo "    RELEASE=1     == build without bounds checking / SWI instructions"
-	@echo "    SPEEDTEST=1   == run loop during idle and count time for analysis"
-	@echo "    VISUALTIME=1  == set screen width to 256 and change border color"
-	@echo "    CPU=6309      == build with faster 6309-specific instructions"
+	@echo "    RELEASE=1      == build without bounds checking / SWI instructions"
+	@echo "    SPEEDTEST=1    == run loop during idle and count time for analysis"
+	@echo "    VISUALTIME=1   == set screen width to 256 and change border color"
+	@echo "    CPU=6309       == build with faster 6309-specific instructions"
+	@echo "    OBJPAGES=1     == num of pages to use levels and objects"
+	@echo "    OBJPAGEGUARD=0 == num bytes to reserve at top of each object code page"
 	@echo "  Debugging Options:"
-	@echo "    MAMEDBG=1     == run MAME with debugger window (for 'test' target)"
+	@echo "    MAMEDBG=1      == run MAME with debugger window (for 'test' target)"
 
 # this special target is used to prevent gnu make from deleting the intermediate sprite .txt and .asm files
 SECONDARY: $(SPRITESRC) $(SPRITEASMSRC)

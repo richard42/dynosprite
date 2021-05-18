@@ -235,10 +235,14 @@ SetFrontBufBackground@
             jsr         System_SetPaletteAuto
             lda         #0
             jsr         Img_FadeIn
-            * Allocate 8k block to store Level and Object code, and map it to $6000
-            lda         #VH_LVLOBJCODE
-            jsr         MemMgr_AllocateBlock
-            stb         $FFA3
+            * Allocate 8k blocks to store Level and Object code, and map first to $6000
+            lda         #VH_LVLOBJCODEX
+!           jsr         MemMgr_AllocateBlock
+            cmpa        #VH_LVLOBJCODE1
+            beq         >
+            deca
+            bra         <
+!           stb         $FFA3
             ldd         #$6000
             std         Ldr_LvlObjCodeEndPtr
             * Start the SectorsToLoad calculation with the size of the level data
@@ -518,6 +522,7 @@ LoadThisGroup@
 AllGroupsLoaded@
             * close the OBJECTS.DAT file
             jsr         Disk_FileClose
+
             * initialize the Objects with the OIT
             lda         #VH_BKTILES             * map the (temporary) page for OIT table into $4000
             ldb         #2
@@ -677,6 +682,8 @@ SkipSound2@
             lda         #1
             sta         Ldr_SkipSound
             * call the level's initialization function
+!           lda         <MemMgr_VirtualTable+VH_LVLOBJCODE1 * Map in the first page
+            sta         $FFA3
             jsr         [Ldr_LDD.PtrInitLevel]
             * set up graphics variables
             jsr         Gfx_InitBkgrndBounds
@@ -772,12 +779,16 @@ GroupObjCodeSize@       zmb     2
 GroupCompSpriteCode@    zmb     2
 GroupCompObjectCode@    zmb     2
 ObjCodePtr@             zmb     2
+ObjCodeVirtualPage@     zmb     2
 *
 Ldr_Load_SpriteGroup
             * Start by setting up this group's entry in the Sprite Group Table
             lda         <Gfx_NumSpriteGroups    * calculate starting pointer to this group's SGT entry
-            inc         <Gfx_NumSpriteGroups
-            ldb         #sizeof{SGT}
+            bne         >                       * branch if ObjCodeVirtualPage@ already initialized?
+            ldb         #VH_LVLOBJCODE1         * initialize ObjCodeVirtualPage@ with first code page
+            stb         ObjCodeVirtualPage@+1
+!           inc         <Gfx_NumSpriteGroups    * increment to next group SGT entry for next call
+            ldb         #sizeof{SGT}            * resume calc of pointer to this group's SGT entry
             mul
             ldx         <Gfx_SpriteGroupsPtr
             ADD_D_TO_X
@@ -888,12 +899,28 @@ SpriteLoop@
             tfr         d,u
             std         ObjCodePtr@
             addd        GroupObjCodeSize@
+            cmpd        #$8000-OBJPAGEGUARD     * are we beyond the page - the guard space?
+            bls         LoadObject@
+*
  IFDEF DEBUG
-            cmpd        #$8000
-            bls         >
+            lda         ObjCodeVirtualPage@+1   * Did we already hit the second page?
+	    cmpa        #VH_LVLOBJCODEX
+            bne         >                       * No, nothing to see here
             swi                                 * Error: out of memory for level / object code
  ENDC
-!           std         Ldr_LvlObjCodeEndPtr    * update end pointer
+*
+* We have to map in another page and record the fact that we are doing that
+!           inc         ObjCodeVirtualPage@+1   * increment to the next virtual page
+	    ldx         ObjCodeVirtualPage@
+            lda         MemMgr_VirtualTable,x   * Map in the second page
+            sta         $FFA3
+	    ldd         #$6000                  * Store code at the beggining of the page
+	    tfr	        d,u
+            std         ObjCodePtr@
+            addd        GroupObjCodeSize@
+*
+LoadObject@
+            std         Ldr_LvlObjCodeEndPtr    * update end pointer
             ldy         GroupObjCodeSize@
             jsr         Decomp_Read_Stream      * read the object handling code
             * close compressed object code stream
@@ -921,6 +948,9 @@ ObjectLoop@
             ldd         ODT.draw,x
             addd        ObjCodePtr@
             std         ODT.draw,x
+            ldy         ObjCodeVirtualPage@
+            leay        MemMgr_VirtualTable,y
+            sty         ODT.vpageAddr,x
             puls        a
             leax        sizeof{ODT},x
             deca
@@ -1087,9 +1117,15 @@ ProgressDone@
 *
 Ldr_Unload_Level
             * 1. Start by freeing all of the 8k blocks allocated
-            lda         #VH_LVLOBJCODE          * free the level/object code page
+            lda         #VH_LVLOBJCODE1         * free the level/object code page
+!           pshs        a
             jsr         MemMgr_FreeBlock
-            ldb         Ldr_NumSpriteCodePages  * free the Sprite Draw/Erase code pages
+            puls        a
+            cmpa        #VH_LVLOBJCODEX
+            beq         >
+            inca
+            bra         <
+!           ldb         Ldr_NumSpriteCodePages  * free the Sprite Draw/Erase code pages
             lda         #VH_SPRCODE
 FreeSpritePages@
             pshs        a,b,x
