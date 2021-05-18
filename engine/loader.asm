@@ -238,10 +238,9 @@ SetFrontBufBackground@
             * Allocate 8k blocks to store Level and Object code, and map first to $6000
             lda         #VH_LVLOBJCODEX
 !           jsr         MemMgr_AllocateBlock
-            cmpa        #VH_LVLOBJCODE1
-            beq         >
             deca
-            bra         <
+            cmpa        #VH_LVLOBJCODE1-1
+            bne         <
 !           stb         $FFA3
             ldd         #$6000
             std         Ldr_LvlObjCodeEndPtr
@@ -904,18 +903,18 @@ SpriteLoop@
 *
  IFDEF DEBUG
             lda         ObjCodeVirtualPage@+1   * Did we already hit the second page?
-	    cmpa        #VH_LVLOBJCODEX
+            cmpa        #VH_LVLOBJCODEX
             bne         >                       * No, nothing to see here
             swi                                 * Error: out of memory for level / object code
  ENDC
 *
 * We have to map in another page and record the fact that we are doing that
 !           inc         ObjCodeVirtualPage@+1   * increment to the next virtual page
-	    ldx         ObjCodeVirtualPage@
+            ldx         ObjCodeVirtualPage@
             lda         MemMgr_VirtualTable,x   * Map in the second page
             sta         $FFA3
-	    ldd         #$6000                  * Store code at the beggining of the page
-	    tfr	        d,u
+            ldd         #$6000                  * Store code at the beggining of the page
+            tfr         d,u
             std         ObjCodePtr@
             addd        GroupObjCodeSize@
 *
@@ -1118,14 +1117,14 @@ ProgressDone@
 Ldr_Unload_Level
             * 1. Start by freeing all of the 8k blocks allocated
             lda         #VH_LVLOBJCODE1         * free the level/object code page
-!           pshs        a
+FreeCodePages@
+            pshs        a
             jsr         MemMgr_FreeBlock
             puls        a
-            cmpa        #VH_LVLOBJCODEX
-            beq         >
             inca
-            bra         <
-!           ldb         Ldr_NumSpriteCodePages  * free the Sprite Draw/Erase code pages
+            cmpa        #VH_LVLOBJCODEX+1
+            bne         FreeCodePages@
+            ldb         Ldr_NumSpriteCodePages  * free the Sprite Draw/Erase code pages
             lda         #VH_SPRCODE
 FreeSpritePages@
             pshs        a,b,x

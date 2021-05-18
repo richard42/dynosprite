@@ -1,10 +1,5 @@
 import math
 
-from wand.color import Color
-from wand.drawing import Drawing
-from wand.image import Image
-
-
 def __GetCompositeColor(palidx):
     if palidx == 0:
         r = g = b = 0
@@ -82,28 +77,5 @@ RGB8_TO_COCO_CMP_COLORS = {
 
 # Color used for transparency
 COCO_TRANSPARENT_COLOR = (254, 0, 254)
-
-
-def create_color_map_image(cmp=False, alpha=False):
-  """
-  Creates an Image that contains the entire Color Computer 3 palette.
-  :param cmp: if False, generate an RGB color map. Otherwise generate a CMP
-              color map.
-  :param alpha: whether or not to include the transparent color
-  """
-  colors = COCO_CMP_RGB8_COLORS if cmp else COCO_RGB_RGB8_COLORS
-  image = Image(
-      width=len(colors) + (1 if alpha else 0),
-      height=1,
-  )
-  with Drawing() as draw:
-    for ii, color in enumerate(colors):
-      draw.fill_color = Color('#{:02x}{:02x}{:02x}'.format(*color))
-      draw.point(ii, 0)
-    if alpha:
-      draw.fill_color = Color('#{:02x}{:02x}{:02x}'.format(*COCO_TRANSPARENT_COLOR))
-      draw.point(len(colors), 0)
-    draw(image)
-  return image
 
 
