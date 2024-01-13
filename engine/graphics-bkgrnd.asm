@@ -2,17 +2,17 @@
 * DynoSprite - graphics-bkgrnd.asm
 * Copyright (c) 2013, Richard Goedeken
 * All rights reserved.
-* 
+*
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are met:
-* 
+*
 * * Redistributions of source code must retain the above copyright notice, this
 *   list of conditions and the following disclaimer.
-* 
+*
 * * Redistributions in binary form must reproduce the above copyright notice,
 *   this list of conditions and the following disclaimer in the documentation
 *   and/or other materials provided with the distribution.
-* 
+*
 * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -44,8 +44,8 @@
 ***********************************************************
 * Gfx_InitBkgrndBounds:
 *
-* - IN:      
-* - OUT: 
+* - IN:
+* - OUT:
 * - Trashed: A,B
 ***********************************************************
 Gfx_InitBkgrndBounds
@@ -118,8 +118,8 @@ Gfx_GetVertStart
 *   These functions initialize or move the graphics aperature based
 *   upon the Buffer 0 / Buffer 1 starting coordinates in Gfx_BkgrndStartXYList
 *
-* - IN:      
-* - OUT: 
+* - IN:
+* - OUT:
 * - Trashed: A,B,X,Y,U
 ***********************************************************
 
@@ -299,7 +299,7 @@ Gfx_UpdatePhyAddress
             cmpx        #Gfx_BkgrndStartXYList
             beq         >                       * if we are updating buffer pair 1
             adda        #14                     * then it is 14 pages down
-!           leay        Gfx_BkgrndPhyAddrList-Gfx_BkgrndStartXYList,x 
+!           leay        Gfx_BkgrndPhyAddrList-Gfx_BkgrndStartXYList,x
                                                 * Y is location to store physical address for screen start of new buffer pair
             ldb         1,x                     * B is low 8 bits of new X coordinate
             bitb        #1
@@ -353,8 +353,8 @@ GetPixelAddress@
 ***********************************************************
 * Gfx_UpdateBackground:
 *
-* - IN:      
-* - OUT:     
+* - IN:
+* - OUT:
 * - Trashed: A,B,X,Y,U
 ***********************************************************
 * Locals:
@@ -476,7 +476,7 @@ SaveRCol0StartRow@
             anda        #6
             lsra
             ldy         #RowOffsetTable@
-            ldb         a,y            
+            ldb         a,y
             stb         <RR_RectRowsY
             jsr         Gfx_RedrawColumn        * draw second column
 RightColsDone@
@@ -678,7 +678,7 @@ DrawBlockLoopY@
             stx         jsr_DrawBlockRows@+1    * store block copy routine address in 'jsr' instruction below
             pshs        y                       * store destination pointer to simplify the row iteration
 DrawBlockLoopX@
-            * get current block texture index 
+            * get current block texture index
             lda         ,u
             * calculate texture page for this block texture and remap to $4000 if necessary
             anda        #$C0
@@ -880,7 +880,7 @@ Gfx_RedrawColumn
             lda         <rr_RowsLeftY
 DrawBlockLoopY_Partial@
 !           sta         <rr_RowsToDraw
-            * get current block texture index 
+            * get current block texture index
             lda         ,u
             * calculate texture page for this block texture and remap to $4000 if necessary
             anda        #$C0
@@ -888,6 +888,7 @@ cmpa_TexturePage1@
             cmpa        #0                      * SMC: texture page is written here before start of loop
             beq         >
             sta         cmpa_TexturePage1@+1
+            sta         cmpa_TexturePage2@+1
             lsra
             lsra
             lsra
@@ -950,13 +951,14 @@ RC_leau_bkgrndMapWidth1
             bra         DrawBlockLoopY_Partial@
             * now we will draw full (16-row) blocks
 DrawBlockLoopY_Full@
-            * get current block texture index 
+            * get current block texture index
             lda         ,u
             * calculate texture page for this block texture and remap to $4000 if necessary
             anda        #$C0
 cmpa_TexturePage2@
             cmpa        #0                      * SMC: texture page is written here before start of loop
             beq         >
+            sta         cmpa_TexturePage1@+1
             sta         cmpa_TexturePage2@+1
             lsra
             lsra
@@ -1147,4 +1149,3 @@ GetMaskDataAddr@
 !           anda        #15                     * A is the output collision mask value
             leas        4,s                     * pop input coordinates from stack
             rts
-
