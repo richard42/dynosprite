@@ -166,8 +166,8 @@ FileLengthLoop@
             bne         >
             swi                                 * error in FAT: file points to empty granule
  ENDC
-!           bita        #$C0
-            bne         LastGranule@
+!           cmpa        #$C0
+            bhs         LastGranule@
             inc         Disk_FileGranulesLeft
             tfr         a,b
             bra         FileLengthLoop@
@@ -236,8 +236,8 @@ GetFATEntry@
             cmpx        #$900                   * is the seek end point in this granule?
             blo         InThisGranule@
  IFDEF DEBUG
-            bitb        #$C0
-            beq         >
+            cmpb        #$C0
+            blo         >
             swi                                 * Error: seek past end of file
  ENDC
 !           leax        -$900,x
@@ -248,8 +248,8 @@ InThisGranule@
             stb         Disk_FileCurGranule     * B contains the granule number which includes our seek end point
             pshs        b
             lda         b,u
-            bita        #$C0                    * is this granule full?
-            beq         >
+            cmpa        #$C0                    * is this granule full?
+            blo         >
             anda        #$1F                    * no, it is partial, so calculate # of bytes in last granule
             clrb
             addd        Disk_FileBytesInLastSec
@@ -354,8 +354,8 @@ ReadNextGranule@
             lda         Disk_FileCurGranule
             ldu         #Disk_FAT
             ldb         a,u                     * B is next granule number
-            bitb        #$C0
-            beq         NextGranValid@
+            cmpb        #$C0
+            blo         NextGranValid@
  IFDEF DEBUG
             cmpy        #1                      * Previous granule was last one, so we better be done copying
             beq         >
@@ -372,8 +372,8 @@ NextGranValid@
  ENDC
 !           pshs        b
             lda         b,u
-            bita        #$C0                    * is this granule full?
-            beq         >
+            cmpa        #$C0                    * is this granule full?
+            blo         >
             anda        #$1F                    * no, it is partial, so calculate # of bytes in last granule
             clrb
             addd        Disk_FileBytesInLastSec
